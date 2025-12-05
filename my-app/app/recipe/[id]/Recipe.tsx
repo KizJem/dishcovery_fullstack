@@ -25,7 +25,7 @@ const styles = {
   },
 
   heroWrap: {
-    position: "relative",
+    position: "relative" as const,
     borderRadius: 16,
     overflow: "hidden",
     height: 260,
@@ -34,17 +34,17 @@ const styles = {
   heroImg: {
     width: "100%",
     height: "100%",
-    objectFit: "cover",
+    objectFit: "cover" as const,
     display: "block",
   },
   heroOverlay: {
-    position: "absolute",
+    position: "absolute" as const,
     inset: 0,
     background:
       "linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.55) 100%)",
   },
   titleBlock: {
-    position: "absolute",
+    position: "absolute" as const,
     left: 20,
     bottom: 18,
     color: "#fff",
@@ -75,7 +75,7 @@ const styles = {
     gap: 16,
     margin: "8px 0 18px",
   },
-  tagsWrap: { display: "flex", gap: 10, flexWrap: "wrap" },
+  tagsWrap: { display: "flex", gap: 10, flexWrap: "wrap" as const },
   pill: {
     padding: "6px 12px",
     background: "#FF9E00",
@@ -131,7 +131,7 @@ const styles = {
     alignItems: "center",
     maxWidth: "900px",
     margin: "0 0",
-    textAlign: "left",
+    textAlign: "left" as const,
   },
   stepNum: {
     minWidth: 28,
@@ -151,7 +151,7 @@ const styles = {
     borderRadius: 16,
     padding: 18,
     boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-    position: "sticky",
+    position: "sticky" as const,
     top: 90,
     alignSelf: "start",
   },
@@ -171,13 +171,13 @@ const styles = {
     background: "#EDEDED",
     overflow: "hidden",
   },
-  barFill: (w) => ({
+  barFill: (w: number) => ({
     width: `${w}%`,
     height: "100%",
     background: "#FF9E00",
   }),
   barLabel: { fontSize: 13 },
-  barVal: { fontSize: 12, color: "#555", textAlign: "right" },
+  barVal: { fontSize: 12, color: "#555", textAlign: "right" as const },
 
   skel: {
     background:
@@ -187,8 +187,8 @@ const styles = {
   },
 };
 
-function useRecipeDetails(id) {
-  const [data, setData] = useState(null);
+function useRecipeDetails(id: string | string[]) {
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -212,7 +212,7 @@ function useRecipeDetails(id) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setData(json);
-      } catch (e) {
+      } catch (e: any) {
         if (e.name !== "AbortError") setErr("Failed to load recipe.");
       } finally {
         setLoading(false);
@@ -225,7 +225,7 @@ function useRecipeDetails(id) {
   return { data, loading, err };
 }
 
-function formatMinutes(mins) {
+function formatMinutes(mins: number | undefined) {
   if (!mins && mins !== 0) return "—";
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -236,15 +236,15 @@ function formatMinutes(mins) {
 
 export default function RecipeDetails() {
   const params = useParams();
-  const id = params.id;
+  const id = params.id as string;
   const router = useRouter();
   const { data, loading, err } = useRecipeDetails(id);
 
   const [liked, setLiked] = useState(false);
 
-  const get = (name) =>
+  const get = (name: string) =>
     data?.nutrition?.nutrients?.find(
-      (n) => n.name?.toLowerCase() === name.toLowerCase()
+      (n: any) => n.name?.toLowerCase() === name.toLowerCase()
     );
   const calories = get("Calories")?.amount ?? null;
 
@@ -278,13 +278,13 @@ export default function RecipeDetails() {
 
   const steps =
     data?.analyzedInstructions?.[0]?.steps
-      ?.map((s) => s.step)
+      ?.map((s: any) => s.step)
       ?.filter(Boolean) ??
     (data?.instructions
       ? data.instructions
         .replace(/<\/?ol>|<\/?ul>|<\/?li>/g, " ")
         .split(/\d+\.\s|(?:Step\s*\d+:)/i)
-        .map((s) => s.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean)
       : []);
 
@@ -424,7 +424,7 @@ export default function RecipeDetails() {
                 <div style={{ ...styles.skel, height: 140, borderRadius: 12 }} />
               ) : (
                 <div style={styles.ingGrid}>
-                  {(data?.extendedIngredients || []).map((ing) => (
+                  {(data?.extendedIngredients || []).map((ing: any) => (
                     <div key={ing.id || ing.original} style={styles.ingItem}>
                       {IngText(ing)}
                     </div>
@@ -440,7 +440,7 @@ export default function RecipeDetails() {
                 <div style={{ ...styles.skel, height: 220, borderRadius: 12 }} />
               ) : steps.length ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {steps.map((s, i) => (
+                  {steps.map((s: string, i: number) => (
                     <div key={i} style={styles.step}>
                       <div style={styles.stepNum}>{i + 1}</div>
                       <div style={{ flex: 1, fontSize: 14, lineHeight: 1.6 }}>{s}</div>
@@ -497,7 +497,7 @@ export default function RecipeDetails() {
   );
 }
 
-function IngText(ing) {
+function IngText(ing: any) {
   if (!ing) return "";
   if (ing.original) return ing.original;
   const amount = ing.amount ? Math.round(ing.amount * 10) / 10 : "";

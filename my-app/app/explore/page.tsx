@@ -5,26 +5,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { auth } from "../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChange } from "../../lib/auth";
 import {
   FaHeart, FaRegHeart, FaThLarge, FaCarrot, FaUtensils,
   FaIceCream, FaGlassMartiniAlt, FaLeaf, FaSeedling, FaAppleAlt, FaBookmark, FaRegBookmark,
 } from "react-icons/fa";
 
 export default function Explore() {
-  const [liked, setLiked] = useState({});
-  const [favorites, setFavorites] = useState({});
+  const [liked, setLiked] = useState<any>({});
+  const [favorites, setFavorites] = useState<any>({});
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [pendingRecipe, setPendingRecipe] = useState(null);
+  const [pendingRecipe, setPendingRecipe] = useState<any>(null);
   const [activeCategory, setActiveCategory] = useState("All Recipes");
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [collections, setCollections] = useState({});
+  const [collections, setCollections] = useState<any>({});
   const [showAddToCollectionDialog, setShowAddToCollectionDialog] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [selectedCollections, setSelectedCollections] = useState([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -52,22 +51,22 @@ export default function Explore() {
     { name: "Healthy", icon: <FaAppleAlt /> },
   ];
 
-  const toggleLike = (id) => setLiked((p) => ({ ...p, [id]: !p[id] }));
+  const toggleLike = (id: string | number) => setLiked((p: any) => ({ ...p, [id]: !p[id] }));
 
   // Persist favorite recipes to localStorage per-user (or guest)
-  const storageKey = (userId) => `dishcovery_favorites_${userId || "guest"}`;
-  const collectionsKey = (userId) => `dishcovery_collections_${userId || "guest"}`;
+  const storageKey = (userId?: string) => `dishcovery_favorites_${userId || "guest"}`;
+  const collectionsKey = (userId?: string) => `dishcovery_collections_${userId || "guest"}`;
 
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
+    const subscription = onAuthStateChange((u) => setUser(u));
+    return () => subscription.unsubscribe();
   }, []);
 
   // Load favorites for current user from localStorage
   useEffect(() => {
-    const key = storageKey(user?.uid);
+    const key = storageKey(user?.id);
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : {};
@@ -80,20 +79,39 @@ export default function Explore() {
     }
   }, [user]);
 
-  // Load collections for current user from localStorage
+  // Load collections for current user from Supabase Database
   useEffect(() => {
-    const key = collectionsKey(user?.uid);
-    try {
-      const raw = localStorage.getItem(key);
-      const parsed = raw ? JSON.parse(raw) : {};
-      setCollections(parsed || {});
-    } catch (e) {
-      console.error("Failed to load collections", e);
+    if (!user?.id) return;
+    
+    async function loadCollections() {
+      try {
+        const { getUserCollections } = await import('../../lib/database');
+        const collectionsData = await getUserCollections(user.id);
+        
+        // Convert to the format expected by the UI
+        const collectionsMap: { [key: string]: any } = {};
+        collectionsData.forEach((col) => {
+          collectionsMap[col.id] = {
+            id: col.id,
+            name: col.title,
+            description: col.description || "",
+            coverImage: col.cover_image_url || "",
+            recipes: [],
+            createdAt: new Date(col.created_at).getTime(),
+          };
+        });
+        setCollections(collectionsMap);
+      } catch (e) {
+        console.error("Failed to load collections from Supabase", e);
+        setCollections({});
+      }
     }
+    
+    loadCollections();
   }, [user]);
 
   // Toggle and persist favorite
-  const handleToggleFavorite = (recipe) => {
+  const handleToggleFavorite = (recipe: any) => {
     // If user isn't signed in, ask them to sign in first
     if (!user) {
       setPendingRecipe(recipe);
@@ -101,8 +119,8 @@ export default function Explore() {
       return;
     }
     const id = String(recipe.id);
-    const key = storageKey(user?.uid);
-    setFavorites((prev) => {
+    const key = storageKey(user?.id);
+    setFavorites((prev: any) => {
       const next = { ...(prev || {}) };
       if (next[id]) {
         delete next[id];
@@ -122,7 +140,7 @@ export default function Explore() {
         console.error("Failed to save favorites", e);
       }
       // keep liked state in sync
-      setLiked((p) => ({ ...p, [id]: !!next[id] }));
+      setLiked((p: any) => ({ ...p, [id]: !!next[id] }));
       return next;
     });
   };
@@ -186,11 +204,11 @@ export default function Explore() {
         const data = await res.json();
         let results = data?.results ?? [];
         if (activeCategory === "Healthy") {
-          results = results.filter((r) => r.veryHealthy || (r.healthScore ?? 0) >= 60);
+          results = results.filter((r: any) => r.veryHealthy || (r.healthScore ?? 0) >= 60);
         }
         setItems(results);
       } catch (e) {
-        if (e.name !== "AbortError") {
+        if ((e as any).name !== "AbortError") {
           console.error(e);
           setError("Network error while loading recipes. Check your internet and try again.");
         }
@@ -203,18 +221,18 @@ export default function Explore() {
     return () => controller.abort();
   }, [activeCategory, apiParams, submittedQuery]);
 
-  const buildTags = (r) => {
+  const buildTags = (r: any) => {
     const tags = [];
     if (Array.isArray(r.diets)) {
       if (r.diets.includes("vegan")) tags.push("Vegan");
-      if (r.diets.some((d) => d.includes("vegetarian"))) tags.push("Vegetarian");
+      if (r.diets.some((d: any) => d.includes("vegetarian"))) tags.push("Vegetarian");
     }
     if (r.veryHealthy || r.healthScore >= 60) tags.push("Healthy");
     if (r.readyInMinutes <= 30) tags.push("Quick");
     return tags.slice(0, 3);
   };
 
-  const handleAddToCollection = (recipe) => {
+  const handleAddToCollection = (recipe: any) => {
     if (!user) {
       setPendingRecipe(recipe);
       setShowSignInModal(true);
@@ -223,44 +241,51 @@ export default function Explore() {
     setSelectedRecipe(recipe);
     // Check which collections already have this recipe
     const recipeInCollections = Object.keys(collections).filter((cid) =>
-      collections[cid].recipes?.some((r) => r.id === recipe.id)
+      collections[cid].recipes?.some((r: any) => r.id === recipe.id)
     );
     setSelectedCollections(recipeInCollections);
     setShowAddToCollectionDialog(true);
   };
 
-  const handleConfirmAddToCollection = () => {
-    if (!selectedRecipe) return;
-    const key = collectionsKey(user?.uid);
-    const updatedCollections = { ...collections };
+  const handleConfirmAddToCollection = async () => {
+    if (!selectedRecipe || !user?.id) return;
     
-    selectedCollections.forEach((cid) => {
-      if (updatedCollections[cid]) {
-        // Check if recipe is not already in collection
-        const exists = updatedCollections[cid].recipes?.some(
-          (r) => r.id === selectedRecipe.id
-        );
-        if (!exists) {
-          const recipeData = {
-            id: selectedRecipe.id,
-            title: selectedRecipe.title,
-            image: selectedRecipe.image || "/food.png",
-            tags: buildTags(selectedRecipe),
-            addedAt: Date.now(),
-          };
-          updatedCollections[cid].recipes = [
-            ...(updatedCollections[cid].recipes || []),
-            recipeData,
-          ];
-        }
-      }
-    });
-
     try {
-      localStorage.setItem(key, JSON.stringify(updatedCollections));
-      setCollections(updatedCollections);
+      const { addRecipeToCollection } = await import('../../lib/database');
+      
+      // Add recipe to each selected collection in Supabase
+      for (const collectionId of selectedCollections) {
+        const recipeData = {
+          id: String(selectedRecipe.id),
+          title: selectedRecipe.title,
+          image: selectedRecipe.image || "/food.png",
+          description: selectedRecipe.summary || "",
+        };
+        
+        await addRecipeToCollection(collectionId, recipeData);
+      }
+      
+      // Reload collections to reflect changes
+      const { getUserCollections } = await import('../../lib/database');
+      const collectionsData = await getUserCollections(user.id);
+      
+      const collectionsMap: { [key: string]: any } = {};
+      collectionsData.forEach((col) => {
+        collectionsMap[col.id] = {
+          id: col.id,
+          name: col.title,
+          description: col.description || "",
+          coverImage: col.cover_image_url || "",
+          recipes: [],
+          createdAt: new Date(col.created_at).getTime(),
+        };
+      });
+      setCollections(collectionsMap);
+      
+      console.log("✅ Recipe added to collections successfully");
     } catch (e) {
-      console.error("Failed to save collections", e);
+      console.error("❌ Failed to add recipe to collections:", e);
+      alert("Failed to add recipe to collections");
     }
 
     setShowAddToCollectionDialog(false);
@@ -268,7 +293,7 @@ export default function Explore() {
     setSelectedCollections([]);
   };
 
-  const toggleCollectionSelection = (collectionId) => {
+  const toggleCollectionSelection = (collectionId: string) => {
     setSelectedCollections((prev) =>
       prev.includes(collectionId)
         ? prev.filter((id) => id !== collectionId)
@@ -276,7 +301,7 @@ export default function Explore() {
     );
   };
 
-  const onSubmitSearch = (e) => {
+  const onSubmitSearch = (e: any) => {
     e.preventDefault();
     setSubmittedQuery(searchTerm);
   };
@@ -411,8 +436,8 @@ export default function Explore() {
 
                       <button
                         style={styles.seeRecipe}
-                        onMouseEnter={(e) => { e.target.style.background = "#FF9E00"; e.target.style.color = "#000"; }}
-                        onMouseLeave={(e) => { e.target.style.background = "#000"; e.target.style.color = "#fff"; }}
+                        onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#FF9E00"; (e.target as HTMLButtonElement).style.color = "#000"; }}
+                        onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#000"; (e.target as HTMLButtonElement).style.color = "#fff"; }}
                         onClick={() => router.push(`/recipe/${id}`)}
                       >
                         See Recipe ➝
@@ -501,7 +526,7 @@ export default function Explore() {
                   </div>
                 ) : (
                   <div style={{ flex: 1, overflowY: "auto", marginBottom: 20 }}>
-                    {Object.values(collections).map((col) => (
+                    {Object.values(collections).map((col: any) => (
                       <label
                         key={col.id}
                         style={{
@@ -607,21 +632,21 @@ const styles = {
   page: { padding: "10px 80px", fontFamily: "'Poppins', sans-serif" },
 
   recipeContainer: { marginTop: 10 },
-  heading: { fontSize: 28, fontWeight: 600, textAlign: "center", marginBottom: 12 },
+  heading: { fontSize: 28, fontWeight: 600, textAlign: "center" as const, marginBottom: 12 },
   highlight: { color: "#FF9E00" },
 
   searchRow: {
     display: "flex", justifyContent: "center", alignItems: "center",
-    gap: 12, margin: "10px 0 26px", padding: "0 16px", flexWrap: "wrap",
+    gap: 12, margin: "10px 0 26px", padding: "0 16px", flexWrap: "wrap" as const,
   },
-  searchWrap: { position: "relative", width: "min(640px, 100%)" },
+  searchWrap: { position: "relative" as const, width: "min(640px, 100%)" },
   searchInput: {
     width: "100%", height: 44, padding: "0 48px 0 14px",
     border: "1px solid #e5e5e5", borderRadius: 9999, fontSize: 14,
-    outline: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", boxSizing: "border-box",
+    outline: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", boxSizing: "border-box" as const,
   },
   clearInside: {
-    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+    position: "absolute" as const, right: 12, top: "50%", transform: "translateY(-50%)",
     border: "none", background: "transparent", fontSize: 22, lineHeight: 1, cursor: "pointer", color: "#999",
   },
   searchBtn: {
@@ -629,7 +654,7 @@ const styles = {
     background: "#000", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
   },
 
-  categories: { display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 24 },
+  categories: { display: "flex", flexWrap: "wrap" as const, gap: 12, justifyContent: "center", marginBottom: 24 },
   categoryButton: {
     display: "flex", alignItems: "center", padding: "10px 20px",
     borderRadius: 25, border: "none", background: "#f1f1f1", cursor: "pointer",
@@ -652,7 +677,7 @@ const styles = {
     boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
     padding: 15,
     display: "flex",
-    flexDirection: "column",
+    flexDirection: "column" as const,
     gap: 10,
     transition: "transform 0.3s ease",
   },
@@ -675,7 +700,7 @@ const styles = {
     margin: 0,
     display: "-webkit-box",
     WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
+    WebkitBoxOrient: "vertical" as const,
     overflow: "hidden",
     minHeight: 44, // equal title area for all cards
   },
@@ -686,13 +711,13 @@ const styles = {
     height: 180,          // <- adjust if you want taller/shorter
     flexShrink: 0,
     borderRadius: 12,
-    objectFit: "cover",
+    objectFit: "cover" as const,
     objectPosition: "center",
     display: "block",
   },
 
   // keep tags block consistent too
-  tags: { display: "flex", gap: 8, flexWrap: "wrap", minHeight: 28 },
+  tags: { display: "flex", gap: 8, flexWrap: "wrap" as const, minHeight: 28 },
   tag: { background: "#f5f5f5", padding: "4px 10px", borderRadius: 12, fontSize: 12 },
 
   // push to bottom so card heights feel consistent
@@ -719,7 +744,7 @@ const styles = {
     animation: "shimmer 1.4s ease infinite",
   },
   modalOverlay: {
-    position: "fixed",
+    position: "fixed" as const,
     inset: 0,
     background: "rgba(0,0,0,0.55)",
     display: "flex",

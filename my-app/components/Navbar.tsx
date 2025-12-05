@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { auth } from "../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { signOutUser } from "../lib/firebase";
+import { onAuthStateChange, signOut } from "../lib/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -14,10 +12,10 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const subscription = onAuthStateChange((u) => {
       setUser(u);
     });
-    return () => unsub();
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -49,53 +47,55 @@ export default function Navbar() {
               </Link>
             </nav>
 
-            <div style={{ position: "relative" }}>
-              <button
-                className="profile"
-                aria-label="Profile"
-                onClick={() => user && setOpen((s) => !s)}
-                title={user ? user.displayName || "Profile" : "Sign in required"}
-              >
-                {user?.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt="avatar"
-                    style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
-                  />
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 12a5 5 0 1 0-0.001-10.001A5 5 0 0 0 12 12Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z"
-                      fill="#FF9E00"
+            {user && (
+              <div style={{ position: "relative" }}>
+                <button
+                  className="profile"
+                  aria-label="Profile"
+                  onClick={() => setOpen((s) => !s)}
+                  title={user?.user_metadata?.full_name || user?.email || "Profile"}
+                >
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="avatar"
+                      style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
                     />
-                  </svg>
-                )}
-              </button>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M12 12a5 5 0 1 0-0.001-10.001A5 5 0 0 0 12 12Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z"
+                        fill="#FF9E00"
+                      />
+                    </svg>
+                  )}
+                </button>
 
-              {user && open && (
-                <div className="profile-dropdown" onMouseLeave={() => setOpen(false)}>
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      setOpen(false);
-                      router.push("/profile");
-                    }}
-                  >
-                    {user.displayName || "Profile"}
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={async () => {
-                      setOpen(false);
-                      await signOutUser();
-                      router.push("/");
-                    }}
-                  >
-                    Log out
-                  </button>
-                </div>
-              )}
-            </div>
+                {open && (
+                  <div className="profile-dropdown" onMouseLeave={() => setOpen(false)}>
+                    <button
+                      className="dropdown-item"
+                      onClick={() => {
+                        setOpen(false);
+                        router.push("/profile");
+                      }}
+                    >
+                      {user?.user_metadata?.full_name || user?.email || "Profile"}
+                    </button>
+                    <button
+                      className="dropdown-item"
+                      onClick={async () => {
+                        setOpen(false);
+                        await signOut();
+                        router.push("/");
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>

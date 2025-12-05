@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from "react";
 
 export default function About() {
   const [activeId, setActiveId] = useState("about-us");
-  const contentRef = useRef(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const ids = [
@@ -20,9 +20,9 @@ export default function About() {
     ];
 
     // wait until contentRef is set
-    const rootEl = contentRef.current || null;
+    const rootEl = contentRef.current;
 
-    const sections = ids.map((id) => (rootEl ? rootEl.querySelector(`#${id}`) : document.getElementById(id))).filter(Boolean);
+    const sections = ids.map((id) => (rootEl ? rootEl.querySelector(`#${id}`) : document.getElementById(id))).filter((el): el is HTMLElement => el !== null);
     if (!sections.length) return;
 
     // Enhanced intersection observer with better position detection
@@ -52,9 +52,9 @@ export default function About() {
     return () => obs.disconnect();
   }, []);
 
-  function handleNavClick(e, id) {
+  function handleNavClick(e: React.MouseEvent, id: string) {
     e.preventDefault();
-    const rootEl = contentRef.current || document;
+    const rootEl = contentRef.current as any || document;
     const target = rootEl.querySelector ? rootEl.querySelector(`#${id}`) : document.getElementById(id);
     if (target) {
       // First update the active ID
@@ -245,8 +245,9 @@ const styles = {
   sidebar: { width: 300, flex: "0 0 300px" },
   sidebarInner: { background: "#fafafa", padding: 18, borderRadius: 8, border: "1px solid #f0f0f0" },
   sideTitle: { fontWeight: 700, color: "#555", marginBottom: 12 },
-  sideNav: { display: "flex", flexDirection: "column", gap: 8 },
+  sideNav: { display: "flex", flexDirection: "column" as const, gap: 8 },
   main: { flex: 1, maxWidth: 920 },
+  content: {},
   h1: { margin: 0, fontSize: 32, fontWeight: 700, color: "#222" },
   h2: { marginTop: 6, fontSize: 22, fontWeight: 700, color: "#FF9E00" },
   p: { marginTop: 12, fontSize: 16, color: "#555", lineHeight: 1.8 },

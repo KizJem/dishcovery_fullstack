@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { signInWithGoogle, auth } from "../lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { signInWithGoogle } from "../lib/auth";
+import { onAuthStateChange } from "../lib/auth";
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
+    const subscription = onAuthStateChange((u) => setUser(u));
+    return () => subscription.unsubscribe();
   }, []);
 
   // 🟢 Handle Google Sign In

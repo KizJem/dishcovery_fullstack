@@ -4,33 +4,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { auth, uploadCollectionImage } from "../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChange } from "../../lib/auth";
+import { uploadCollectionImage } from "../../lib/supabase";
+import { getUserCollections, createCollection, deleteCollection } from "../../lib/database";
 
 export default function Profile() {
-  const [user, setUser] = useState(null);
-  const [favorites, setFavorites] = useState({});
-  const [sort, setSort] = useState("newest");
-  const [sortOpen, setSortOpen] = useState(false);
-  const [collections, setCollections] = useState({});
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState("");
-  const [newCollectionDesc, setNewCollectionDesc] = useState("");
-  const [collectionImage, setCollectionImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [favorites, setFavorites] = useState<any>({});
+  const [sort, setSort] = useState<string>("newest");
+  const [sortOpen, setSortOpen] = useState<boolean>(false);
+  const [collections, setCollections] = useState<any>({});
+  const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
+  const [newCollectionName, setNewCollectionName] = useState<string>("");
+  const [newCollectionDesc, setNewCollectionDesc] = useState<string>("");
+  const [collectionImage, setCollectionImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState<boolean>(false);
   const router = useRouter();
 
-  const storageKey = (userId) => `dishcovery_favorites_${userId || "guest"}`;
-  const collectionsKey = (userId) => `dishcovery_collections_${userId || "guest"}`;
+  const storageKey = (userId?: string) => `dishcovery_favorites_${userId || "guest"}`;
+  const collectionsKey = (userId?: string) => `dishcovery_collections_${userId || "guest"}`;
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
+    const subscription = onAuthStateChange((u) => setUser(u));
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    const key = storageKey(user?.uid);
+    const key = storageKey(user?.id);
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : {};
@@ -42,19 +43,39 @@ export default function Profile() {
   }, [user]);
 
   useEffect(() => {
-    const key = collectionsKey(user?.uid);
-    try {
-      const raw = localStorage.getItem(key);
-      const parsed = raw ? JSON.parse(raw) : {};
-      setCollections(parsed || {});
-    } catch (e) {
-      console.error("Failed to load collections", e);
-      setCollections({});
+    if (!user?.id) return;
+    
+    // Load collections from Supabase Database
+    async function loadCollections() {
+      try {
+        console.log("📥 Loading collections from Supabase...");
+        const collectionsData = await getUserCollections(user.id);
+        console.log("✅ Loaded collections:", collectionsData);
+        
+        // Convert to the format expected by the UI
+        const collectionsMap: any = {};
+        collectionsData.forEach((col: any) => {
+          collectionsMap[col.id] = {
+            id: col.id,
+            name: col.title,
+            description: col.description || "",
+            coverImage: col.cover_image_url || "",
+            recipes: [],
+            createdAt: new Date(col.created_at).getTime(),
+          };
+        });
+        setCollections(collectionsMap);
+      } catch (e) {
+        console.error("❌ Failed to load collections from Supabase:", e);
+        setCollections({});
+      }
     }
+    
+    loadCollections();
   }, [user]);
 
-  const saveFavorites = (next) => {
-    const key = storageKey(user?.uid);
+  const saveFavorites = (next: any) => {
+    const key = storageKey(user?.id);
     try {
       localStorage.setItem(key, JSON.stringify(next || {}));
     } catch (e) {
@@ -62,8 +83,8 @@ export default function Profile() {
     }
   };
 
-  const saveCollections = (next) => {
-    const key = collectionsKey(user?.uid);
+  const saveCollections = (next: any) => {
+    const key = collectionsKey(user?.id);
     try {
       localStorage.setItem(key, JSON.stringify(next || {}));
     } catch (e) {
@@ -71,13 +92,13 @@ export default function Profile() {
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setCollectionImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -85,31 +106,52 @@ export default function Profile() {
 
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return;
+    if (!user?.id) {
+      alert("You must be logged in to create a collection");
+      return;
+    }
     
     setIsUploading(true);
     try {
-      const newId = Date.now().toString();
       let coverImageUrl = "";
 
-      // TEMPORARY: Use base64 image preview instead of Firebase Storage
-      // This stores the image directly in localStorage
-      if (imagePreview) {
-        coverImageUrl = imagePreview; // Use the base64 preview
-        console.log("✅ Using base64 image (temporary solution)");
+      // Upload image to Supabase Storage if file is selected
+      if (collectionImage) {
+        console.log("📤 Uploading image to Supabase...");
+        const tempId = Date.now().toString();
+        coverImageUrl = await uploadCollectionImage(collectionImage, tempId, user.id);
+        console.log("✅ Image uploaded:", coverImageUrl);
       }
 
-      const newCollection = {
-        id: newId,
-        name: newCollectionName.trim(),
-        description: newCollectionDesc.trim(),
-        coverImage: coverImageUrl,
-        recipes: [],
-        createdAt: Date.now(),
-      };
+      // Create collection in Supabase Database
+      console.log("📝 Creating collection in database...");
+      const newCollection = await createCollection(
+        user.id,
+        newCollectionName.trim(),
+        newCollectionDesc.trim(),
+        coverImageUrl
+      );
+
+      if (!newCollection) {
+        throw new Error("Failed to create collection in database");
+      }
+
+      console.log("✅ Collection created:", newCollection);
       
-      const updated = { ...collections, [newId]: newCollection };
-      setCollections(updated);
-      saveCollections(updated);
+      // Refresh collections from database
+      const updatedCollections = await getUserCollections(user.id);
+      const collectionsMap: any = {};
+      updatedCollections.forEach((col: any) => {
+        collectionsMap[col.id] = {
+          id: col.id,
+          name: col.title,
+          description: col.description || "",
+          coverImage: col.cover_image_url || "",
+          recipes: [],
+          createdAt: new Date(col.created_at).getTime(),
+        };
+      });
+      setCollections(collectionsMap);
       
       // Reset form
       setNewCollectionName("");
@@ -117,9 +159,9 @@ export default function Profile() {
       setCollectionImage(null);
       setImagePreview("");
       setShowCreateDialog(false);
-    } catch (error) {
-      console.error("Failed to create collection:", error);
-      alert("Failed to create collection. Please try again.");
+    } catch (error: any) {
+      console.error("❌ Failed to create collection:", error);
+      alert(`Failed to create collection: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -138,7 +180,7 @@ const profileStyles = {
     boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
     padding: 15,
     display: "flex",
-    flexDirection: "column",
+    flexDirection: "column" as const,
     gap: 10,
     transition: "transform 0.2s ease",
   },
@@ -157,7 +199,7 @@ const profileStyles = {
     margin: 0,
     display: "-webkit-box",
     WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
+    WebkitBoxOrient: "vertical" as any,
     overflow: "hidden",
     minHeight: 44,
   },
@@ -166,10 +208,10 @@ const profileStyles = {
     height: 180,
     flexShrink: 0,
     borderRadius: 12,
-    objectFit: "cover",
+    objectFit: "cover" as const,
     display: "block",
   },
-  tags: { display: "flex", gap: 8, flexWrap: "wrap", minHeight: 28, marginTop: 6 },
+  tags: { display: "flex", gap: 8, flexWrap: "wrap" as const, minHeight: 28, marginTop: 6 },
   tag: { background: "#f5f5f5", padding: "4px 10px", borderRadius: 12, fontSize: 12 },
   seeRecipe: {
     marginTop: "auto",
@@ -185,9 +227,9 @@ const profileStyles = {
   },
 };
 
-  const handleUnfavorite = (id) => {
+  const handleUnfavorite = (id: string | number) => {
     const sid = String(id);
-    setFavorites((prev) => {
+    setFavorites((prev: any) => {
       const next = { ...(prev || {}) };
       delete next[sid];
       saveFavorites(next);
@@ -196,17 +238,17 @@ const profileStyles = {
   };
 
   const sortedList = (() => {
-    const arr = Object.values(favorites || {}).slice();
+    const arr: any[] = Object.values(favorites || {}).slice();
     switch (sort) {
       case "oldest":
-        return arr.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+        return arr.sort((a: any, b: any) => (a.addedAt || 0) - (b.addedAt || 0));
       case "az":
-        return arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+        return arr.sort((a: any, b: any) => (a.title || "").localeCompare(b.title || ""));
       case "za":
-        return arr.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
+        return arr.sort((a: any, b: any) => (b.title || "").localeCompare(a.title || ""));
       case "newest":
       default:
-        return arr.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+        return arr.sort((a: any, b: any) => (b.addedAt || 0) - (a.addedAt || 0));
     }
   })();
 
@@ -218,12 +260,14 @@ const profileStyles = {
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px" }}>
         <section style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <img
-            src={user?.photoURL || "/food.png"}
+            src={user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "/food.png"}
             alt="avatar"
             style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
           />
           <div>
-            <h2 style={{ color: "#FF9E00", margin: 0 }}>{user?.displayName || "user 01"}</h2>
+            <h2 style={{ color: "#FF9E00", margin: 0 }}>
+              {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "user 01"}
+            </h2>
             <p style={{ marginTop: 6, color: "#666" }}>✏️ Edit profile</p>
           </div>
         </section>
@@ -261,14 +305,14 @@ const profileStyles = {
             <p style={{ color: "#666", marginTop: 12 }}>You have no favorite recipes yet. Click the ♥ on Explore to add some!</p>
           ) : (
             <div style={profileStyles.recipeGrid}>
-              {sortedList.map((r) => (
+              {sortedList.map((r: any) => (
                 <div key={r.id} style={profileStyles.card}>
                   <div style={profileStyles.cardHeader}>
                     <h3 style={profileStyles.titleClamp}>{r.title}</h3>
                     <button onClick={() => handleUnfavorite(r.id)} style={profileStyles.heartButton} aria-label="unfavorite">❤</button>
                   </div>
                   <img src={r.image || "/food.png"} alt={r.title} style={profileStyles.cardImg} />
-                  <div style={profileStyles.tags}>{(r.tags || []).map((t, i) => <span key={i} style={profileStyles.tag}>{t}</span>)}</div>
+                  <div style={profileStyles.tags}>{(r.tags || []).map((t: string, i: number) => <span key={i} style={profileStyles.tag}>{t}</span>)}</div>
                   <button style={profileStyles.seeRecipe} onClick={() => router.push(`/recipe/${r.id}`)}>See Recipe ➝</button>
                 </div>
               ))}
@@ -315,7 +359,7 @@ const profileStyles = {
                 marginTop: 16,
               }}
             >
-              {Object.values(collections).map((col) => {
+              {Object.values(collections).map((col: any) => {
                 const firstRecipes = col.recipes?.slice(0, 3) || [];
                 const hasMore = (col.recipes?.length || 0) > 3;
                 return (
@@ -330,8 +374,8 @@ const profileStyles = {
                       cursor: "pointer",
                       transition: "transform 0.2s ease",
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.transform = "translateY(-4px)")}
-                    onMouseOut={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                    onMouseOver={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.transform = "translateY(-4px)")}
+                    onMouseOut={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.transform = "translateY(0)")}
                   >
                     <div
                       style={{
@@ -368,7 +412,7 @@ const profileStyles = {
                         </div>
                       ) : (
                         <>
-                          {firstRecipes.slice(0, 2).map((recipe, idx) => (
+                          {firstRecipes.slice(0, 2).map((recipe: any, idx: number) => (
                             <img
                               key={idx}
                               src={recipe.image || "/food.png"}
@@ -454,7 +498,7 @@ const profileStyles = {
               width: "90%",
               boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <h3 style={{ margin: "0 0 20px 0", fontSize: 20 }}>Create new collection</h3>
             
@@ -484,7 +528,7 @@ const profileStyles = {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                onClick={() => document.getElementById("collection-image-input").click()}
+                onClick={() => document.getElementById("collection-image-input")?.click()}
               >
                 {imagePreview ? (
                   <img
@@ -527,7 +571,7 @@ const profileStyles = {
               <input
                 type="text"
                 value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCollectionName(e.target.value)}
                 placeholder="Enter collection name"
                 style={{
                   width: "100%",
@@ -554,7 +598,7 @@ const profileStyles = {
               </label>
               <textarea
                 value={newCollectionDesc}
-                onChange={(e) => setNewCollectionDesc(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewCollectionDesc(e.target.value)}
                 placeholder="Add a description"
                 style={{
                   width: "100%",
