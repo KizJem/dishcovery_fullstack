@@ -1,6 +1,7 @@
 // lib/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjodj_crU80p1iAEvcfrAAZm3N9AspnV0",
@@ -16,6 +17,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
+export const storage = getStorage(app);
 
 // Function to sign in with Google
 export const signInWithGoogle = async () => {
@@ -37,5 +39,19 @@ export const signOutUser = async () => {
     console.log("✅ User signed out");
   } catch (error) {
     console.error("❌ Sign out error:", error);
+  }
+};
+
+// Upload collection cover image to Firebase Storage
+export const uploadCollectionImage = async (file, userId, collectionId) => {
+  try {
+    const storageRef = ref(storage, `collections/${userId}/${collectionId}/${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    console.log("✅ Image uploaded successfully:", downloadURL);
+    return downloadURL;
+  } catch (error) {
+    console.error("❌ Image upload error:", error);
+    throw error;
   }
 };

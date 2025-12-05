@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { auth } from "../../lib/firebase";
+import { auth, uploadCollectionImage } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
 export default function Profile() {
@@ -16,6 +16,9 @@ export default function Profile() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [newCollectionDesc, setNewCollectionDesc] = useState("");
+  const [collectionImage, setCollectionImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
 
   const storageKey = (userId) => `dishcovery_favorites_${userId || "guest"}`;
@@ -68,22 +71,58 @@ export default function Profile() {
     }
   };
 
-  const handleCreateCollection = () => {
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCollectionImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return;
-    const newId = Date.now().toString();
-    const newCollection = {
-      id: newId,
-      name: newCollectionName.trim(),
-      description: newCollectionDesc.trim(),
-      recipes: [],
-      createdAt: Date.now(),
-    };
-    const updated = { ...collections, [newId]: newCollection };
-    setCollections(updated);
-    saveCollections(updated);
-    setNewCollectionName("");
-    setNewCollectionDesc("");
-    setShowCreateDialog(false);
+    
+    setIsUploading(true);
+    try {
+      const newId = Date.now().toString();
+      let coverImageUrl = "";
+
+      // TEMPORARY: Use base64 image preview instead of Firebase Storage
+      // This stores the image directly in localStorage
+      if (imagePreview) {
+        coverImageUrl = imagePreview; // Use the base64 preview
+        console.log("✅ Using base64 image (temporary solution)");
+      }
+
+      const newCollection = {
+        id: newId,
+        name: newCollectionName.trim(),
+        description: newCollectionDesc.trim(),
+        coverImage: coverImageUrl,
+        recipes: [],
+        createdAt: Date.now(),
+      };
+      
+      const updated = { ...collections, [newId]: newCollection };
+      setCollections(updated);
+      saveCollections(updated);
+      
+      // Reset form
+      setNewCollectionName("");
+      setNewCollectionDesc("");
+      setCollectionImage(null);
+      setImagePreview("");
+      setShowCreateDialog(false);
+    } catch (error) {
+      console.error("Failed to create collection:", error);
+      alert("Failed to create collection. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 const profileStyles = {
@@ -304,7 +343,18 @@ const profileStyles = {
                         position: "relative",
                       }}
                     >
-                      {firstRecipes.length === 0 ? (
+                      {col.coverImage ? (
+                        <img
+                          src={col.coverImage}
+                          alt={col.name}
+                          style={{
+                            gridColumn: "1 / -1",
+                            width: "100%",
+                            height: 180,
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : firstRecipes.length === 0 ? (
                         <div
                           style={{
                             gridColumn: "1 / -1",
@@ -408,6 +458,61 @@ const profileStyles = {
           >
             <h3 style={{ margin: "0 0 20px 0", fontSize: 20 }}>Create new collection</h3>
             
+            {/* Image Upload Section */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              >
+                Cover Image (optional)
+              </label>
+              <div
+                style={{
+                  border: "2px dashed #ddd",
+                  borderRadius: 12,
+                  padding: 20,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  background: imagePreview ? "transparent" : "#f9f9f9",
+                  position: "relative",
+                  minHeight: 120,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onClick={() => document.getElementById("collection-image-input").click()}
+              >
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 200,
+                      borderRadius: 8,
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <div>
+                    <p style={{ margin: 0, color: "#666", fontSize: 14 }}>📷 Click to upload image</p>
+                    <p style={{ margin: "4px 0 0 0", color: "#999", fontSize: 12 }}>JPG, PNG (max 5MB)</p>
+                  </div>
+                )}
+                <input
+                  id="collection-image-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{ display: "none" }}
+                />
+              </div>
+            </div>
+
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
@@ -472,6 +577,8 @@ const profileStyles = {
                   setShowCreateDialog(false);
                   setNewCollectionName("");
                   setNewCollectionDesc("");
+                  setCollectionImage(null);
+                  setImagePreview("");
                 }}
                 style={{
                   flex: 1,
@@ -483,25 +590,26 @@ const profileStyles = {
                   fontSize: 15,
                   fontWeight: 500,
                 }}
+                disabled={isUploading}
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateCollection}
-                disabled={!newCollectionName.trim()}
+                disabled={!newCollectionName.trim() || isUploading}
                 style={{
                   flex: 1,
                   padding: "12px 24px",
                   borderRadius: 12,
                   border: "none",
-                  background: newCollectionName.trim() ? "#FF9E00" : "#ccc",
+                  background: (newCollectionName.trim() && !isUploading) ? "#FF9E00" : "#ccc",
                   color: "#fff",
-                  cursor: newCollectionName.trim() ? "pointer" : "not-allowed",
+                  cursor: (newCollectionName.trim() && !isUploading) ? "pointer" : "not-allowed",
                   fontSize: 15,
                   fontWeight: 500,
                 }}
               >
-                Create
+                {isUploading ? "Creating..." : "Create"}
               </button>
             </div>
           </div>

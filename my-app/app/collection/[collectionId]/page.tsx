@@ -166,6 +166,37 @@ export default function CollectionView() {
       <div className="nav-spacer" />
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px" }}>
+        {/* Cover Image Banner */}
+        {collection.coverImage && (
+          <div
+            style={{
+              width: "100%",
+              height: 280,
+              borderRadius: 16,
+              overflow: "hidden",
+              marginBottom: 24,
+              position: "relative",
+            }}
+          >
+            <img
+              src={collection.coverImage}
+              alt={collection.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 100%)",
+              }}
+            />
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <button
