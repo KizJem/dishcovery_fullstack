@@ -6,7 +6,7 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { onAuthStateChange } from "../../lib/auth";
 import { uploadCollectionImage } from "../../lib/supabase";
-import { getUserCollections, createCollection, deleteCollection } from "../../lib/database";
+import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes } from "../../lib/database";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -52,18 +52,46 @@ export default function Profile() {
         const collectionsData = await getUserCollections(user.id);
         console.log("✅ Loaded collections:", collectionsData);
         
-        // Convert to the format expected by the UI
+        // Convert to the format expected by the UI and load recipes for each
         const collectionsMap: any = {};
-        collectionsData.forEach((col: any) => {
-          collectionsMap[col.id] = {
-            id: col.id,
-            name: col.title,
-            description: col.description || "",
-            coverImage: col.cover_image_url || "",
-            recipes: [],
-            createdAt: new Date(col.created_at).getTime(),
-          };
-        });
+        
+        // Load all collections with their recipes
+        await Promise.all(collectionsData.map(async (col: any) => {
+          try {
+            const recipes = await getCollectionRecipes(col.id);
+            collectionsMap[col.id] = {
+              id: col.id,
+              title: col.title,
+              name: col.title, // Keep both for compatibility
+              description: col.description || "",
+              cover_image_url: col.cover_image_url || "",
+              coverImage: col.cover_image_url || "", // Keep both for compatibility
+              recipes: recipes.map((r: any) => ({
+                id: r.id,
+                title: r.title,
+                image: r.image_url,
+                image_url: r.image_url,
+              })),
+              createdAt: new Date(col.created_at).getTime(),
+              created_at: col.created_at,
+            };
+          } catch (recipeError) {
+            console.error(`Failed to load recipes for collection ${col.id}:`, recipeError);
+            // Still add the collection even if recipes fail to load
+            collectionsMap[col.id] = {
+              id: col.id,
+              title: col.title,
+              name: col.title,
+              description: col.description || "",
+              cover_image_url: col.cover_image_url || "",
+              coverImage: col.cover_image_url || "",
+              recipes: [],
+              createdAt: new Date(col.created_at).getTime(),
+              created_at: col.created_at,
+            };
+          }
+        }));
+        
         setCollections(collectionsMap);
       } catch (e) {
         console.error("❌ Failed to load collections from Supabase:", e);
@@ -387,10 +415,10 @@ const profileStyles = {
                         position: "relative",
                       }}
                     >
-                      {col.coverImage ? (
+                      {(col.coverImage || col.cover_image_url) ? (
                         <img
-                          src={col.coverImage}
-                          alt={col.name}
+                          src={col.coverImage || col.cover_image_url}
+                          alt={col.title || col.name}
                           style={{
                             gridColumn: "1 / -1",
                             width: "100%",
@@ -415,7 +443,7 @@ const profileStyles = {
                           {firstRecipes.slice(0, 2).map((recipe: any, idx: number) => (
                             <img
                               key={idx}
-                              src={recipe.image || "/food.png"}
+                              src={recipe.image || recipe.image_url || "/food.png"}
                               alt={recipe.title}
                               style={{
                                 width: "100%",
@@ -427,7 +455,7 @@ const profileStyles = {
                           {firstRecipes[2] && (
                             <div style={{ position: "relative", gridColumn: "1 / -1" }}>
                               <img
-                                src={firstRecipes[2].image || "/food.png"}
+                                src={firstRecipes[2].image || firstRecipes[2].image_url || "/food.png"}
                                 alt={firstRecipes[2].title}
                                 style={{
                                   width: "100%",
@@ -458,7 +486,7 @@ const profileStyles = {
                       )}
                     </div>
                     <div style={{ padding: 16 }}>
-                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{col.name}</h4>
+                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{col.title || col.name}</h4>
                       <p style={{ margin: "6px 0 0 0", fontSize: 13, color: "#666" }}>
                         {col.recipes?.length || 0} {(col.recipes?.length || 0) === 1 ? "Recipe" : "Recipes"}
                       </p>

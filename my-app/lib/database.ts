@@ -169,23 +169,47 @@ export async function deleteCollection(collectionId: string): Promise<boolean> {
 
 // Get all recipes in a collection
 export async function getCollectionRecipes(collectionId: string): Promise<Recipe[]> {
-  const { data, error } = await supabase
-    .from('collection_recipes')
-    .select(`
-      recipe_id,
-      added_at,
-      recipes (*)
-    `)
-    .eq('collection_id', collectionId)
-    .order('added_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching collection recipes:', error);
+  try {
+    console.log('🔍 Fetching recipes for collection:', collectionId);
+    
+    // First, get the recipe IDs from collection_recipes
+    const { data: collectionRecipes, error: linkError } = await supabase
+      .from('collection_recipes')
+      .select('recipe_id, added_at')
+      .eq('collection_id', collectionId)
+      .order('added_at', { ascending: false });
+    
+    if (linkError) {
+      console.error('❌ Error fetching collection recipe links:', linkError);
+      return [];
+    }
+    
+    if (!collectionRecipes || collectionRecipes.length === 0) {
+      console.log('✅ No recipes in this collection yet');
+      return [];
+    }
+    
+    console.log(`📋 Found ${collectionRecipes.length} recipe links`);
+    
+    // Now fetch the actual recipe details
+    const recipeIds = collectionRecipes.map(cr => cr.recipe_id);
+    const { data: recipes, error: recipesError } = await supabase
+      .from('recipes')
+      .select('*')
+      .in('id', recipeIds);
+    
+    if (recipesError) {
+      console.error('❌ Error fetching recipe details:', recipesError);
+      return [];
+    }
+    
+    console.log(`✅ Successfully fetched ${recipes?.length || 0} recipes`);
+    return recipes || [];
+    
+  } catch (err) {
+    console.error('❌ Exception in getCollectionRecipes:', err);
     return [];
   }
-
-  // @ts-ignore - Supabase returns nested structure
-  return data?.map(item => item.recipes) || [];
 }
 
 // Add a recipe to a collection
@@ -194,6 +218,8 @@ export async function addRecipeToCollection(
   recipeData: { id: string; title: string; image?: string; description?: string }
 ): Promise<boolean> {
   try {
+    console.log('📝 Adding recipe to collection:', { collectionId, recipeId: recipeData.id });
+    
     // First, ensure the recipe exists in the recipes table
     const { error: recipeError } = await supabase
       .from('recipes')
@@ -208,26 +234,48 @@ export async function addRecipeToCollection(
       });
 
     if (recipeError) {
-      console.error('Error upserting recipe:', recipeError);
+      console.error('❌ Error upserting recipe:', recipeError);
+      console.error('Recipe error details:', JSON.stringify(recipeError, null, 2));
       return false;
     }
+    
+    console.log('✅ Recipe upserted successfully');
+
+    // Check if this recipe is already in the collection
+    const { data: existing } = await supabase
+      .from('collection_recipes')
+      .select('id')
+      .eq('collection_id', collectionId)
+      .eq('recipe_id', recipeData.id)
+      .single();
+    
+    if (existing) {
+      console.log('ℹ️ Recipe already in collection');
+      return true;
+    }
+
+    // Generate a unique ID for the collection_recipes entry
+    const linkId = `cr_${collectionId}_${recipeData.id}_${Date.now()}`;
 
     // Then link it to the collection
     const { error: linkError } = await supabase
       .from('collection_recipes')
       .insert({
+        id: linkId,
         collection_id: collectionId,
         recipe_id: recipeData.id,
       });
 
     if (linkError) {
-      console.error('Error linking recipe to collection:', linkError);
+      console.error('❌ Error linking recipe to collection:', linkError);
+      console.error('Link error details:', JSON.stringify(linkError, null, 2));
       return false;
     }
 
+    console.log('✅ Recipe linked to collection successfully');
     return true;
   } catch (err) {
-    console.error('Exception in addRecipeToCollection:', err);
+    console.error('❌ Exception in addRecipeToCollection:', err);
     return false;
   }
 }

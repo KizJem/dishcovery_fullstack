@@ -33,16 +33,44 @@ export default function Navbar() {
           {/* RIGHT */}
           <div className="right-section">
             <nav className="links">
-              <Link href="/" className={pathname === "/" ? "active" : ""}>
+              <Link 
+                href="/" 
+                className={pathname === "/" ? "active" : ""}
+                style={{ 
+                  color: pathname === "/" ? "#FF9E00" : "#222",
+                  fontWeight: pathname === "/" ? 600 : 500 
+                }}
+              >
                 Home
               </Link>
-              <Link href="/about" className={pathname === "/about" ? "active" : ""}>
+              <Link 
+                href="/about" 
+                className={pathname === "/about" ? "active" : ""}
+                style={{ 
+                  color: pathname === "/about" ? "#FF9E00" : "#222",
+                  fontWeight: pathname === "/about" ? 600 : 500 
+                }}
+              >
                 About
               </Link>
-              <Link href="/explore" className={pathname === "/explore" ? "active" : ""}>
+              <Link 
+                href="/explore" 
+                className={pathname === "/explore" ? "active" : ""}
+                style={{ 
+                  color: pathname === "/explore" ? "#FF9E00" : "#222",
+                  fontWeight: pathname === "/explore" ? 600 : 500 
+                }}
+              >
                 Explore
               </Link>
-              <Link href="/fridge" className={pathname === "/fridge" ? "active" : ""}>
+              <Link 
+                href="/fridge" 
+                className={pathname === "/fridge" ? "active" : ""}
+                style={{ 
+                  color: pathname === "/fridge" ? "#FF9E00" : "#222",
+                  fontWeight: pathname === "/fridge" ? 600 : 500 
+                }}
+              >
                 What's in Your Fridge
               </Link>
             </nav>

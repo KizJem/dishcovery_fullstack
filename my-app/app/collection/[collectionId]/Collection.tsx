@@ -4,74 +4,114 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
-import { auth } from "../../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChange } from "../../../lib/auth";
+import { 
+  getCollection, 
+  getCollectionRecipes, 
+  deleteCollection, 
+  removeRecipeFromCollection 
+} from "../../../lib/database";
 
 export default function CollectionView() {
   const params = useParams();
-  const collectionId = params.collectionId;
-  const [user, setUser] = useState(null);
-  const [collection, setCollection] = useState(null);
-  const [recipes, setRecipes] = useState([]);
+  const collectionId = params.collectionId as string;
+  const [user, setUser] = useState<any>(null);
+  const [collection, setCollection] = useState<any>(null);
+  const [recipes, setRecipes] = useState<any[]>([]);
   const [sort, setSort] = useState("newest");
   const [sortOpen, setSortOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const storageKey = (userId) => `dishcovery_collections_${userId || "guest"}`;
-
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
+    const subscription = onAuthStateChange((u) => setUser(u));
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const key = storageKey(user?.uid);
-    try {
-      const raw = localStorage.getItem(key);
-      const collections = raw ? JSON.parse(raw) : {};
-      const currentCollection = collections[collectionId];
-      if (currentCollection) {
-        setCollection(currentCollection);
-        setRecipes(currentCollection.recipes || []);
-      } else {
-        router.push("/profile");
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuOpen || sortOpen) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('button')) {
+          setMenuOpen(false);
+          setSortOpen(false);
+        }
       }
-    } catch (e) {
-      console.error("Failed to load collection", e);
-      router.push("/profile");
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpen, sortOpen]);
+
+  useEffect(() => {
+    if (!user || !collectionId) return;
+    
+    async function loadCollectionData() {
+      try {
+        setLoading(true);
+        console.log("📥 Loading collection:", collectionId);
+        
+        // Fetch collection details
+        const collectionData = await getCollection(collectionId);
+        if (!collectionData) {
+          console.error("Collection not found");
+          router.push("/profile");
+          return;
+        }
+        
+        console.log("✅ Collection loaded:", collectionData);
+        setCollection(collectionData);
+        
+        // Fetch recipes in the collection
+        const recipesData = await getCollectionRecipes(collectionId);
+        console.log("✅ Recipes loaded:", recipesData.length);
+        setRecipes(recipesData);
+      } catch (e) {
+        console.error("Failed to load collection", e);
+        router.push("/profile");
+      } finally {
+        setLoading(false);
+      }
     }
+    
+    loadCollectionData();
   }, [user, collectionId, router]);
 
-  const handleDeleteCollection = () => {
-    const key = storageKey(user?.uid);
+  const handleDeleteCollection = async () => {
     try {
-      const raw = localStorage.getItem(key);
-      const collections = raw ? JSON.parse(raw) : {};
-      delete collections[collectionId];
-      localStorage.setItem(key, JSON.stringify(collections));
-      router.push("/profile");
+      console.log("🗑️ Deleting collection:", collectionId);
+      const success = await deleteCollection(collectionId);
+      if (success) {
+        console.log("✅ Collection deleted");
+        router.push("/profile");
+      } else {
+        console.error("Failed to delete collection");
+        alert("Failed to delete collection. Please try again.");
+      }
     } catch (e) {
       console.error("Failed to delete collection", e);
+      alert("Failed to delete collection. Please try again.");
     }
   };
 
-  const handleRemoveFromCollection = (recipeId) => {
-    const key = storageKey(user?.uid);
+  const handleRemoveFromCollection = async (recipeId: string) => {
     try {
-      const raw = localStorage.getItem(key);
-      const collections = raw ? JSON.parse(raw) : {};
-      if (collections[collectionId]) {
-        collections[collectionId].recipes = collections[collectionId].recipes.filter(
-          (r) => r.id !== recipeId
-        );
-        localStorage.setItem(key, JSON.stringify(collections));
-        setRecipes(collections[collectionId].recipes);
+      console.log("🗑️ Removing recipe from collection:", recipeId);
+      const success = await removeRecipeFromCollection(collectionId, recipeId);
+      if (success) {
+        console.log("✅ Recipe removed");
+        // Refresh recipes list
+        const updatedRecipes = await getCollectionRecipes(collectionId);
+        setRecipes(updatedRecipes);
+      } else {
+        console.error("Failed to remove recipe");
+        alert("Failed to remove recipe. Please try again.");
       }
     } catch (e) {
       console.error("Failed to remove recipe from collection", e);
+      alert("Failed to remove recipe. Please try again.");
     }
   };
 
@@ -79,14 +119,14 @@ export default function CollectionView() {
     const arr = [...recipes];
     switch (sort) {
       case "oldest":
-        return arr.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+        return arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       case "az":
         return arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
       case "za":
         return arr.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
       case "newest":
       default:
-        return arr.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+        return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
   })();
 
@@ -158,6 +198,19 @@ export default function CollectionView() {
     },
   };
 
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <div className="nav-spacer" />
+        <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px", textAlign: "center" }}>
+          <p style={{ color: "#666" }}>Loading collection...</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   if (!collection) return null;
 
   return (
@@ -166,73 +219,80 @@ export default function CollectionView() {
       <div className="nav-spacer" />
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px" }}>
-        {/* Cover Image Banner */}
-        {collection.coverImage && (
+        {/* Cover Image Banner with Collection Title */}
+        <div
+          style={{
+            width: "100%",
+            height: 280,
+            borderRadius: 16,
+            overflow: "hidden",
+            marginBottom: 24,
+            position: "relative",
+            background: collection.cover_image_url 
+              ? `url(${collection.cover_image_url}) center/cover` 
+              : "linear-gradient(135deg, #FF9E00 0%, #FF6B00 100%)",
+          }}
+        >
+          {collection.cover_image_url && (
+            <>
+              <img
+                src={collection.cover_image_url}
+                alt={collection.title}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%)",
+                }}
+              />
+            </>
+          )}
           <div
             style={{
-              width: "100%",
-              height: 280,
-              borderRadius: 16,
-              overflow: "hidden",
-              marginBottom: 24,
-              position: "relative",
+              position: "absolute",
+              bottom: 24,
+              left: 24,
+              color: "#fff",
+              zIndex: 10,
             }}
           >
-            <img
-              src={collection.coverImage}
-              alt={collection.name}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 100%)",
-              }}
-            />
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <button
-              onClick={() => router.push("/profile")}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 14,
-                color: "#666",
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              ← Back
-            </button>
-            <h2 style={{ color: "#FF9E00", margin: 0 }}>{collection.name}</h2>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: 36,
+              fontWeight: 700,
+              textShadow: "0 2px 12px rgba(0,0,0,0.3)"
+            }}>
+              {collection.title}
+            </h1>
             {collection.description && (
-              <p style={{ color: "#666", marginTop: 8 }}>{collection.description}</p>
+              <p style={{ 
+                margin: "8px 0 0 0", 
+                fontSize: 16,
+                textShadow: "0 1px 6px rgba(0,0,0,0.3)"
+              }}>
+                {collection.description}
+              </p>
             )}
-            <p style={{ color: "#999", fontSize: 14, marginTop: 4 }}>
-              {recipes.length} {recipes.length === 1 ? "Recipe" : "Recipes"}
-            </p>
           </div>
-
-          <div style={{ position: "relative" }}>
+          
+          {/* Menu Button */}
+          <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
             <button
               onClick={() => setMenuOpen((m) => !m)}
               style={{
-                background: "none",
+                background: "rgba(255, 255, 255, 0.9)",
                 border: "none",
                 cursor: "pointer",
                 fontSize: 24,
-                padding: 8,
+                padding: "8px 12px",
+                borderRadius: 8,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
               }}
               aria-label="More options"
             >
@@ -244,7 +304,7 @@ export default function CollectionView() {
                 style={{
                   position: "absolute",
                   right: 0,
-                  top: 40,
+                  top: 48,
                   background: "#fff",
                   border: "1px solid #eee",
                   boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
@@ -268,7 +328,10 @@ export default function CollectionView() {
                     border: "none",
                     cursor: "pointer",
                     fontSize: 14,
+                    color: "#dc2626",
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   Delete Collection
                 </button>
@@ -277,9 +340,11 @@ export default function CollectionView() {
           </div>
         </div>
 
-        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #ddd" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <p style={{ color: "#999", fontSize: 14, margin: 0 }}>
+            {recipes.length} {recipes.length === 1 ? "Recipe" : "Recipes"}
+          </p>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setSortOpen((s) => !s)}
@@ -319,7 +384,7 @@ export default function CollectionView() {
               <div
                 style={{
                   position: "absolute",
-                  left: 0,
+                  right: 0,
                   top: 42,
                   background: "#fff",
                   border: "1px solid #eee",
@@ -425,20 +490,29 @@ export default function CollectionView() {
                   </button>
                 </div>
                 <img
-                  src={r.image || "/food.png"}
+                  src={r.image_url || "/food.png"}
                   alt={r.title}
                   style={collectionStyles.cardImg}
                 />
-                <div style={collectionStyles.tags}>
-                  {(r.tags || []).map((t, i) => (
-                    <span key={i} style={collectionStyles.tag}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
+                {r.description && (
+                  <p style={{ 
+                    fontSize: 13, 
+                    color: "#666", 
+                    margin: "8px 0 0 0",
+                    lineHeight: 1.4,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden"
+                  }}>
+                    {r.description}
+                  </p>
+                )}
                 <button
                   style={collectionStyles.seeRecipe}
                   onClick={() => router.push(`/recipe/${r.id}`)}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#333"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "#000"}
                 >
                   See Recipe ➝
                 </button>
