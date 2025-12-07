@@ -65,3 +65,20 @@ export async function getSession() {
   if (error) throw error;
   return session;
 }
+
+// Update user profile
+export async function updateUserProfile(updates: { fullName?: string; avatarUrl?: string }) {
+  // Get current user to preserve existing metadata
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      ...user?.user_metadata, // Preserve existing metadata
+      full_name: updates.fullName,
+      avatar_url: updates.avatarUrl,
+    },
+  });
+  
+  if (error) throw error;
+  return data;
+}

@@ -66,3 +66,35 @@ export async function deleteCollectionImage(imageUrl: string) {
     throw error;
   }
 }
+
+// Upload profile image to Supabase Storage
+export async function uploadProfileImage(file: File, userId: string) {
+  // Validate inputs
+  if (!userId) {
+    throw new Error('User ID is required to upload images');
+  }
+
+  if (!file) {
+    throw new Error('No file provided');
+  }
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${userId}/profile-${Date.now()}.${fileExt}`;
+  const filePath = `profile-images/${fileName}`;
+
+  // Upload to storage
+  const { data, error } = await supabase.storage
+    .from('collection-images')
+    .upload(filePath, file);
+
+  if (error) {
+    throw error;
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('collection-images')
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
+}

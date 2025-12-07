@@ -30,6 +30,16 @@ export interface CollectionRecipe {
   added_at: string;
 }
 
+export interface UserProfile {
+  id: string;
+  user_id: string;
+  username?: string;
+  avatar_url?: string;
+  bio?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Helper functions for collections
 import { supabase } from './supabase';
 
@@ -297,4 +307,70 @@ export async function removeRecipeFromCollection(
   }
 
   return true;
+}
+
+// Get user profile
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    console.log('🔍 Fetching user profile for:', userId);
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No profile found, return null
+        console.log('ℹ️ No profile found for user');
+        return null;
+      }
+      console.error('❌ Error fetching user profile:', error);
+      return null;
+    }
+
+    console.log('✅ User profile fetched:', data);
+    return data;
+  } catch (err) {
+    console.error('❌ Exception in getUserProfile:', err);
+    return null;
+  }
+}
+
+// Create or update user profile
+export async function upsertUserProfile(
+  userId: string,
+  username?: string,
+  avatarUrl?: string,
+  bio?: string
+): Promise<UserProfile | null> {
+  try {
+    console.log('💾 Upserting user profile:', { userId, username, avatarUrl });
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        user_id: userId,
+        username: username,
+        avatar_url: avatarUrl,
+        bio: bio,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error upserting user profile:', error);
+      throw error;
+    }
+
+    console.log('✅ User profile upserted successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('❌ Exception in upsertUserProfile:', err);
+    return null;
+  }
 }

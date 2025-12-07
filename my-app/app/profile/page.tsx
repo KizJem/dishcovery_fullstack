@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import CollectionForm from "../../components/CollectionForm";
-import { onAuthStateChange } from "../../lib/auth";
-import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes } from "../../lib/database";
+import { onAuthStateChange, updateUserProfile, getCurrentUser } from "../../lib/auth";
+import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes, getUserProfile, upsertUserProfile } from "../../lib/database";
+import { uploadProfileImage } from "../../lib/supabase";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [favorites, setFavorites] = useState<any>({});
   const [sort, setSort] = useState<string>("newest");
   const [sortOpen, setSortOpen] = useState<boolean>(false);
@@ -20,6 +22,7 @@ export default function Profile() {
   const [editCoverImage, setEditCoverImage] = useState<File | null>(null);
   const [editCoverImagePreview, setEditCoverImagePreview] = useState<string | null>(null);
   const [editFileName, setEditFileName] = useState<string>("");
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const router = useRouter();
 
   const storageKey = (userId?: string) => `dishcovery_favorites_${userId || "guest"}`;
@@ -29,6 +32,25 @@ export default function Profile() {
     const subscription = onAuthStateChange((u) => setUser(u));
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load user profile from database
+  useEffect(() => {
+    if (!user?.id) {
+      setUserProfile(null);
+      return;
+    }
+    
+    async function loadUserProfile() {
+      try {
+        const profile = await getUserProfile(user.id);
+        setUserProfile(profile);
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+      }
+    }
+    
+    loadUserProfile();
+  }, [user]);
 
   useEffect(() => {
     const key = storageKey(user?.id);
@@ -213,17 +235,20 @@ const profileStyles = {
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px" }}>
         <section style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <img
-            src={user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "/food.png"}
+            src={userProfile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "/food.png"}
             alt="avatar"
             style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
           />
           <div>
             <h2 style={{ color: "#FF9E00", margin: 0, fontSize: "32px", fontWeight: "bold" }}>
-              {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "user 01"}
+              {userProfile?.username || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "user 01"}
             </h2>
             <button
               onClick={() => {
-                setEditUsername(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "");
+                setEditUsername(userProfile?.username || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "");
+                setEditCoverImage(null);
+                setEditCoverImagePreview(userProfile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null);
+                setEditFileName("");
                 setShowEditDialog(true);
               }}
               style={{
@@ -625,27 +650,68 @@ const profileStyles = {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement save functionality
-                  console.log("Save profile:", { username: editUsername, coverImage: editCoverImage });
-                  setShowEditDialog(false);
+                onClick={async () => {
+                  try {
+                    setIsSaving(true);
+                    
+                    let avatarUrl = userProfile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+                    
+                    // Upload new profile image if selected
+                    if (editCoverImage && user?.id) {
+                      console.log('📤 Uploading profile image...');
+                      avatarUrl = await uploadProfileImage(editCoverImage, user.id);
+                      console.log('✅ Profile image uploaded:', avatarUrl);
+                    }
+                    
+                    // Save to database
+                    console.log('💾 Saving profile to database...');
+                    const updatedProfile = await upsertUserProfile(
+                      user.id,
+                      editUsername,
+                      avatarUrl
+                    );
+                    
+                    if (!updatedProfile) {
+                      throw new Error('Failed to save profile');
+                    }
+                    
+                    console.log('✅ Profile saved successfully!');
+                    
+                    // Update local state
+                    setUserProfile(updatedProfile);
+                    
+                    // Close dialog
+                    setShowEditDialog(false);
+                    
+                    // Reset form
+                    setEditCoverImage(null);
+                    setEditCoverImagePreview(null);
+                    setEditFileName("");
+                  } catch (error) {
+                    console.error('❌ Error updating profile:', error);
+                    alert('Failed to update profile. Please try again.');
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
+                disabled={isSaving}
                 style={{
                   flex: 1,
                   padding: '10px 20px',
                   borderRadius: 12,
                   border: 'none',
-                  background: '#FF9E00',
+                  background: isSaving ? '#ccc' : '#FF9E00',
                   color: '#fff',
-                  cursor: 'pointer',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
                   fontSize: 14,
                   fontWeight: 600,
                   transition: 'all 0.2s',
+                  opacity: isSaving ? 0.7 : 1,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#FF8C00')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#FF9E00')}
+                onMouseEnter={(e) => !isSaving && (e.currentTarget.style.background = '#FF8C00')}
+                onMouseLeave={(e) => !isSaving && (e.currentTarget.style.background = '#FF9E00')}
               >
-                Save
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

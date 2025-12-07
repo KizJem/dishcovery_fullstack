@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onAuthStateChange, signOut } from "../lib/auth";
+import { getUserProfile } from "../lib/database";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -17,6 +19,25 @@ export default function Navbar() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load user profile from database
+  useEffect(() => {
+    if (!user?.id) {
+      setUserProfile(null);
+      return;
+    }
+    
+    async function loadUserProfile() {
+      try {
+        const profile = await getUserProfile(user.id);
+        setUserProfile(profile);
+      } catch (error) {
+        console.error('Failed to load user profile in navbar:', error);
+      }
+    }
+    
+    loadUserProfile();
+  }, [user]);
 
   return (
     <>
@@ -81,11 +102,11 @@ export default function Navbar() {
                   className="profile"
                   aria-label="Profile"
                   onClick={() => setOpen((s) => !s)}
-                  title={user?.user_metadata?.full_name || user?.email || "Profile"}
+                  title={userProfile?.username || user?.user_metadata?.full_name || user?.email || "Profile"}
                 >
-                  {user?.user_metadata?.avatar_url ? (
+                  {(userProfile?.avatar_url || user?.user_metadata?.avatar_url) ? (
                     <img
-                      src={user.user_metadata.avatar_url}
+                      src={userProfile?.avatar_url || user.user_metadata.avatar_url}
                       alt="avatar"
                       style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
                     />
@@ -108,7 +129,7 @@ export default function Navbar() {
                         router.push("/profile");
                       }}
                     >
-                      {user?.user_metadata?.full_name || user?.email || "Profile"}
+                      {userProfile?.username || user?.user_metadata?.full_name || user?.email || "Profile"}
                     </button>
                     <button
                       className="dropdown-item"
@@ -139,7 +160,7 @@ export default function Navbar() {
         .links a { text-decoration:none; color:#222; font-size:18px; font-weight:500; }
         .links a.active { color:#FF9E00; font-weight:600; }
         .links a:hover { color:#FF9E00; }
-        .profile { width:48px; height:48px; border-radius:50%; border:none; background:#222; color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+        .profile { width:48px; height:48px; border-radius:50%; border:none; background:transparent; color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:0; overflow:hidden; }
         .profile img { display:block; }
         .profile-dropdown { position:absolute; right:0; top:58px; background:#fff; border:1px solid #eee; box-shadow:0 6px 18px rgba(0,0,0,0.08); border-radius:8px; overflow:hidden; min-width:160px; z-index:1200; }
         .dropdown-item { display:block; width:100%; padding:10px 14px; text-align:left; background:transparent; border:none; cursor:pointer; font-weight:500; color:#222; }
