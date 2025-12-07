@@ -14,10 +14,13 @@ export default function ImageUpload({ onImageUploaded, collectionId, userId, cur
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImageUrl || null);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>('');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    setFileName(file.name);
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -117,9 +120,9 @@ export default function ImageUpload({ onImageUploaded, collectionId, userId, cur
         <span style={{ 
           marginLeft: 16, 
           fontSize: 15, 
-          color: '#666' 
+          color: fileName ? '#333' : '#666' 
         }}>
-          No file chosen
+          {fileName || 'No file chosen'}
         </span>
       </div>
       

@@ -574,7 +574,7 @@ export default function CollectionView() {
             onClick={(e) => e.stopPropagation()}
           >
             <CollectionForm
-              userId={user.uid}
+              userId={user.id}
               existingCollection={{
                 id: collection.id,
                 title: collection.title,
