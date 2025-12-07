@@ -76,20 +76,41 @@ export default function CollectionForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow">
-      <h2 className="text-2xl font-bold">
+    <form onSubmit={handleSubmit} style={{ padding: 0 }}>
+      <h2 style={{ 
+        fontSize: 24, 
+        fontWeight: 700, 
+        marginBottom: 10,
+        color: '#222'
+      }}>
         {existingCollection ? 'Edit Collection' : 'Create New Collection'}
       </h2>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded">
+        <div style={{
+          background: '#fee',
+          color: '#c00',
+          padding: 12,
+          borderRadius: 8,
+          marginBottom: 20,
+          fontSize: 14
+        }}>
           {error}
         </div>
       )}
 
-      <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-          Title *
+      <div style={{ marginBottom: 20 }}>
+        <label 
+          htmlFor="title" 
+          style={{ 
+            display: 'block', 
+            fontSize: 14, 
+            fontWeight: 600, 
+            color: '#222',
+            marginBottom: 8 
+          }}
+        >
+          Collection name
         </label>
         <input
           id="title"
@@ -98,14 +119,33 @@ export default function CollectionForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={100}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            border: '1px solid #ddd',
+            borderRadius: 8,
+            fontSize: 15,
+            outline: 'none',
+            transition: 'border-color 0.2s',
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = '#FF9E00'}
+          onBlur={(e) => e.currentTarget.style.borderColor = '#ddd'}
           placeholder="e.g., Italian Favorites"
         />
       </div>
 
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-          Description
+      <div style={{ marginBottom: 16 }}>
+        <label 
+          htmlFor="description" 
+          style={{ 
+            display: 'block', 
+            fontSize: 14, 
+            fontWeight: 600, 
+            color: '#222',
+            marginBottom: 8 
+          }}
+        >
+          Description <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span>
         </label>
         <textarea
           id="description"
@@ -113,39 +153,87 @@ export default function CollectionForm({
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           maxLength={500}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            border: '1px solid #ddd',
+            borderRadius: 8,
+            fontSize: 15,
+            outline: 'none',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            transition: 'border-color 0.2s',
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = '#FF9E00'}
+          onBlur={(e) => e.currentTarget.style.borderColor = '#ddd'}
           placeholder="Describe your collection..."
         />
       </div>
 
-      <ImageUpload
-        collectionId={existingCollection?.id || 'new'}
-        userId={userId}
-        currentImageUrl={coverImageUrl}
-        onImageUploaded={handleImageUploaded}
-      />
-
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      <div style={{ marginBottom: 16 }}>
+        <label 
+          style={{ 
+            display: 'block', 
+            fontSize: 14, 
+            fontWeight: 600, 
+            color: '#222',
+            marginBottom: 8 
+          }}
         >
-          {loading ? 'Saving...' : existingCollection ? 'Update Collection' : 'Create Collection'}
-        </button>
+          Cover Image
+        </label>
+        <ImageUpload
+          collectionId={existingCollection?.id || 'new'}
+          userId={userId}
+          currentImageUrl={coverImageUrl}
+          onImageUploaded={handleImageUploaded}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 12 }}>
         <button
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          style={{
+            flex: 1,
+            padding: '10px 20px',
+            borderRadius: 12,
+            border: '1px solid #ddd',
+            background: '#fff',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#222',
+            opacity: loading ? 0.5 : 1,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => !loading && (e.currentTarget.style.background = '#f9f9f9')}
+          onMouseLeave={(e) => !loading && (e.currentTarget.style.background = '#fff')}
         >
           Cancel
         </button>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            flex: 1,
+            padding: '10px 20px',
+            borderRadius: 12,
+            border: 'none',
+            background: loading ? '#ccc' : '#FF9E00',
+            color: '#fff',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: 14,
+            fontWeight: 600,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => !loading && (e.currentTarget.style.background = '#FF8C00')}
+          onMouseLeave={(e) => !loading && (e.currentTarget.style.background = '#FF9E00')}
+        >
+          {loading ? 'Saving...' : existingCollection ? 'Update' : 'Create'}
+        </button>
       </div>
-
-      <p className="text-xs text-gray-500">
-        * You must be logged in to upload cover images
-      </p>
     </form>
   );
 }

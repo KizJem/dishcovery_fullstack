@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
+import CollectionForm from "../../../components/CollectionForm";
 import { onAuthStateChange } from "../../../lib/auth";
 import { 
   getCollection, 
@@ -22,6 +23,7 @@ export default function CollectionView() {
   const [sortOpen, setSortOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -144,7 +146,7 @@ export default function CollectionView() {
       boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
       padding: 15,
       display: "flex",
-      flexDirection: "column",
+      flexDirection: "column" as const,
       gap: 10,
       transition: "transform 0.2s ease",
     },
@@ -170,7 +172,7 @@ export default function CollectionView() {
       margin: 0,
       display: "-webkit-box",
       WebkitLineClamp: 2,
-      WebkitBoxOrient: "vertical",
+      WebkitBoxOrient: "vertical" as const,
       overflow: "hidden",
       minHeight: 44,
     },
@@ -179,7 +181,7 @@ export default function CollectionView() {
       height: 180,
       flexShrink: 0,
       borderRadius: 12,
-      objectFit: "cover",
+      objectFit: "cover" as const,
       display: "block",
     },
     tags: { display: "flex", gap: 8, flexWrap: "wrap", minHeight: 28, marginTop: 6 },
@@ -314,6 +316,27 @@ export default function CollectionView() {
                   minWidth: 180,
                 }}
               >
+                <button
+                  onClick={() => {
+                    setShowEditDialog(true);
+                    setMenuOpen(false);
+                  }}
+                  style={{
+                    display: "block",
+                    padding: "12px 16px",
+                    width: "100%",
+                    textAlign: "left",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    color: "#222",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  Edit Collection
+                </button>
                 <button
                   onClick={() => {
                     setShowDeleteDialog(true);
@@ -521,6 +544,56 @@ export default function CollectionView() {
           </div>
         )}
       </main>
+
+      {/* Edit Collection Dialog */}
+      {showEditDialog && user && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: 20,
+          }}
+          onClick={() => setShowEditDialog(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 600,
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CollectionForm
+              userId={user.uid}
+              existingCollection={{
+                id: collection.id,
+                title: collection.title,
+                description: collection.description,
+                cover_image_url: collection.cover_image_url,
+              }}
+              onSuccess={async () => {
+                setShowEditDialog(false);
+                // Refresh collection data
+                const updatedCollection = await getCollection(collectionId);
+                if (updatedCollection) {
+                  setCollection(updatedCollection);
+                }
+              }}
+              onCancel={() => setShowEditDialog(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Delete Collection Dialog */}
       {showDeleteDialog && (

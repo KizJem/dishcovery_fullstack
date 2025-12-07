@@ -61,57 +61,117 @@ export default function ImageUpload({ onImageUploaded, collectionId, userId, cur
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label 
-          htmlFor="cover-image" 
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
-          Collection Cover Image
-        </label>
-        
-        {preview && (
-          <div className="mb-4">
-            <img 
-              src={preview} 
-              alt="Preview" 
-              className="w-full h-48 object-cover rounded-lg"
-            />
-          </div>
-        )}
+    <div>
+      {preview && (
+        <div style={{ marginBottom: 16 }}>
+          <img 
+            src={preview} 
+            alt="Preview" 
+            style={{
+              width: '100%',
+              height: 200,
+              objectFit: 'cover' as const,
+              borderRadius: 8,
+              border: '1px solid #eee'
+            }}
+          />
+        </div>
+      )}
 
+      <div style={{ position: 'relative', display: 'inline-block' }}>
         <input
           id="cover-image"
           type="file"
           accept="image/*"
           onChange={handleFileChange}
           disabled={uploading}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-full file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100
-            disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            position: 'absolute',
+            width: 0,
+            height: 0,
+            opacity: 0,
+            overflow: 'hidden',
+            zIndex: -1,
+          }}
         />
-        
-        <p className="mt-1 text-xs text-gray-500">
-          PNG, JPG, GIF up to 5MB
-        </p>
+        <label
+          htmlFor="cover-image"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '8px 20px',
+            background: '#ddd',
+            color: '#333',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            opacity: uploading ? 0.5 : 1,
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => !uploading && (e.currentTarget.style.background = '#ccc')}
+          onMouseLeave={(e) => !uploading && (e.currentTarget.style.background = '#ddd')}
+        >
+          Choose File
+        </label>
+        <span style={{ 
+          marginLeft: 16, 
+          fontSize: 15, 
+          color: '#666' 
+        }}>
+          No file chosen
+        </span>
       </div>
+      
+      <p style={{ 
+        marginTop: 8, 
+        fontSize: 12, 
+        color: '#999' 
+      }}>
+        PNG, JPG, GIF up to 5mb
+      </p>
 
       {uploading && (
-        <div className="flex items-center gap-2 text-sm text-blue-600">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 14,
+          color: '#FF9E00',
+          marginTop: 12
+        }}>
+          <div style={{
+            width: 16,
+            height: 16,
+            border: '2px solid #FFE0B2',
+            borderTopColor: '#FF9E00',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
           Uploading...
         </div>
       )}
 
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+        <div style={{
+          fontSize: 14,
+          color: '#c00',
+          background: '#fee',
+          padding: 12,
+          borderRadius: 8,
+          marginTop: 12
+        }}>
           {error}
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   );
 }
