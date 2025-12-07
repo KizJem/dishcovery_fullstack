@@ -15,6 +15,11 @@ export default function Profile() {
   const [sortOpen, setSortOpen] = useState<boolean>(false);
   const [collections, setCollections] = useState<any>({});
   const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
+  const [showEditDialog, setShowEditDialog] = useState<boolean>(false);
+  const [editUsername, setEditUsername] = useState<string>("");
+  const [editCoverImage, setEditCoverImage] = useState<File | null>(null);
+  const [editCoverImagePreview, setEditCoverImagePreview] = useState<string | null>(null);
+  const [editFileName, setEditFileName] = useState<string>("");
   const router = useRouter();
 
   const storageKey = (userId?: string) => `dishcovery_favorites_${userId || "guest"}`;
@@ -213,10 +218,33 @@ const profileStyles = {
             style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
           />
           <div>
-            <h2 style={{ color: "#FF9E00", margin: 0 }}>
+            <h2 style={{ color: "#FF9E00", margin: 0, fontSize: "32px", fontWeight: "bold" }}>
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "user 01"}
             </h2>
-            <p style={{ marginTop: 6, color: "#666" }}>✏️ Edit profile</p>
+            <button
+              onClick={() => {
+                setEditUsername(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "");
+                setShowEditDialog(true);
+              }}
+              style={{
+                marginTop: 6,
+                color: "#666",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                fontSize: "inherit",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Edit profile
+            </button>
           </div>
         </section>
 
@@ -417,6 +445,212 @@ const profileStyles = {
           )}
         </section>
       </main>
+
+      {/* Edit Profile Dialog */}
+      {showEditDialog && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: 20,
+          }}
+          onClick={() => setShowEditDialog(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 600,
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ 
+              fontSize: 24, 
+              fontWeight: 700, 
+              marginBottom: 10,
+              color: '#222'
+            }}>
+              Edit Profile
+            </h2>
+            
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ 
+                display: "block", 
+                fontSize: 14, 
+                fontWeight: 600, 
+                color: '#222',
+                marginBottom: 8 
+              }}>
+                Username
+              </label>
+              <input
+                type="text"
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: '1px solid #ddd',
+                  borderRadius: 8,
+                  fontSize: 15,
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#FF9E00'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#ddd'}
+                placeholder="Enter your username"
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ 
+                display: "block", 
+                fontSize: 14, 
+                fontWeight: 600, 
+                color: '#222',
+                marginBottom: 8 
+              }}>
+                Profile Image
+              </label>
+              
+              {editCoverImagePreview && (
+                <div style={{ marginBottom: 16 }}>
+                  <img 
+                    src={editCoverImagePreview} 
+                    alt="Preview" 
+                    style={{
+                      width: '100%',
+                      height: 200,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      border: '1px solid #eee'
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <input
+                  id="edit-cover-image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setEditCoverImage(file);
+                      setEditFileName(file.name);
+                      // Create preview
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setEditCoverImagePreview(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    width: 0,
+                    height: 0,
+                    opacity: 0,
+                    overflow: 'hidden',
+                    zIndex: -1,
+                  }}
+                />
+                <label
+                  htmlFor="edit-cover-image"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '8px 20px',
+                    background: '#ddd',
+                    color: '#333',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#ccc')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#ddd')}
+                >
+                  Choose File
+                </label>
+                <span style={{ 
+                  marginLeft: 16, 
+                  fontSize: 15, 
+                  color: editFileName ? '#333' : '#666' 
+                }}>
+                  {editFileName || 'No file chosen'}
+                </span>
+              </div>
+              
+              <p style={{ 
+                marginTop: 8, 
+                fontSize: 12, 
+                color: '#999' 
+              }}>
+                PNG, JPG, GIF up to 5mb
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setShowEditDialog(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 20px',
+                  borderRadius: 12,
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#222',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#f9f9f9')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Implement save functionality
+                  console.log("Save profile:", { username: editUsername, coverImage: editCoverImage });
+                  setShowEditDialog(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 20px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: '#FF9E00',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#FF8C00')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#FF9E00')}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Collection Dialog */}
       {showCreateDialog && (
