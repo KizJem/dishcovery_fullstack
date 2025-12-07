@@ -222,37 +222,36 @@ const profileStyles = {
 
         <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #ddd" }} />
 
-        <h3 style={{ color: "#FF9E00" }}>My favorites</h3>
-        <p style={{ color: "#666" }}>Your favorite recipes will show up here.</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3 style={{ color: "#FF9E00", fontSize: "24px", fontWeight: "bold", margin: 0 }}>My favorites</h3>
+          
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setSortOpen((s) => !s)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+              aria-expanded={sortOpen}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M6 12h12M10 18h4" stroke="#222" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span style={{ fontWeight: 600 }}>{sort === "newest" ? "Newest" : sort === "oldest" ? "Oldest" : sort === "az" ? "A - Z" : "Z - A"}</span>
+            </button>
+
+            {sortOpen && (
+              <div style={{ position: "absolute", right: 0, top: 42, background: "#fff", border: "1px solid #eee", boxShadow: "0 6px 18px rgba(0,0,0,0.08)", borderRadius: 8, overflow: "hidden", zIndex: 1200 }}>
+                <button className="dropdown-item" onClick={() => { setSort("newest"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Newest</button>
+                <button className="dropdown-item" onClick={() => { setSort("oldest"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Oldest</button>
+                <button className="dropdown-item" onClick={() => { setSort("az"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>A - Z</button>
+                <button className="dropdown-item" onClick={() => { setSort("za"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Z - A</button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Favorites grid + sort control */}
         <div style={{ marginTop: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setSortOpen((s) => !s)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: "8px 12px", borderRadius: 8, border: "1px solid #eee", background: "#fff", cursor: "pointer" }}
-                aria-expanded={sortOpen}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M6 12h12M10 18h4" stroke="#222" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <span style={{ fontWeight: 600 }}>{sort === "newest" ? "Newest" : sort === "oldest" ? "Oldest" : sort === "az" ? "A - Z" : "Z - A"}</span>
-              </button>
-
-              {sortOpen && (
-                <div style={{ position: "absolute", left: 0, top: 42, background: "#fff", border: "1px solid #eee", boxShadow: "0 6px 18px rgba(0,0,0,0.08)", borderRadius: 8, overflow: "hidden", zIndex: 1200 }}>
-                  <button className="dropdown-item" onClick={() => { setSort("newest"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Newest</button>
-                  <button className="dropdown-item" onClick={() => { setSort("oldest"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Oldest</button>
-                  <button className="dropdown-item" onClick={() => { setSort("az"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>A - Z</button>
-                  <button className="dropdown-item" onClick={() => { setSort("za"); setSortOpen(false); }} style={{ display: 'block', padding: '8px 12px', width: '200px', textAlign: 'left', background: 'transparent', border: 'none' }}>Z - A</button>
-                </div>
-              )}
-            </div>
-          </div>
-
           {sortedList.length === 0 ? (
-            <p style={{ color: "#666", marginTop: 12 }}>You have no favorite recipes yet. Click the ♥ on Explore to add some!</p>
+            <p style={{ color: "#666", marginTop: 24 }}>You have no favorite recipes yet. Click the ♥ on Explore to add some!</p>
           ) : (
-            <div style={profileStyles.recipeGrid}>
+            <div style={{ ...profileStyles.recipeGrid, marginTop: 20 }}>
               {sortedList.map((r: any) => (
                 <div key={r.id} style={profileStyles.card}>
                   <div style={profileStyles.cardHeader}>
@@ -272,21 +271,21 @@ const profileStyles = {
         <section style={{ marginTop: 48 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <h3 style={{ color: "#FF9E00", margin: 0 }}>My collection</h3>
+              <h3 style={{ color: "#000000", margin: 0, fontSize: 18, fontWeight: "bold" }}>My collection</h3>
             </div>
             <button
               onClick={() => setShowCreateDialog(true)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "10px 18px",
-                borderRadius: 25,
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 20,
                 border: "1px solid #FF9E00",
                 background: "#fff",
                 color: "#FF9E00",
                 cursor: "pointer",
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: 600,
               }}
             >
