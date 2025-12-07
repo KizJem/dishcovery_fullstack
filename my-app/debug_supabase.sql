@@ -22,9 +22,9 @@ ALTER TABLE collections DISABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_recipes DISABLE ROW LEVEL SECURITY;
 
--- 5. Test insert (replace with your Firebase user ID)
+-- 5. Test insert (replace with your user ID)
 -- INSERT INTO collections (user_id, title, description)
--- VALUES ('your-firebase-user-id-here', 'Test Collection', 'Testing');
+-- VALUES ('your-user-id-here', 'Test Collection', 'Testing');
 
 -- 6. View all collections
 SELECT * FROM collections;

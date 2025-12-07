@@ -18,7 +18,6 @@ if (typeof window !== 'undefined') {
 }
 
 // Upload image to Supabase Storage
-// Note: Using Firebase Auth, so we skip Supabase auth check
 export async function uploadCollectionImage(file: File, collectionId: string, userId: string) {
   // Validate inputs
   if (!userId) {

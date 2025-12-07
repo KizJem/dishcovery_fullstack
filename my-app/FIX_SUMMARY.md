@@ -14,7 +14,7 @@
 - ✅ Load collections from database instead of localStorage
 
 ### 2. The Issue Now
-Your database has **Row Level Security (RLS)** enabled, which blocks inserts because you're using Firebase Auth instead of Supabase Auth.
+Your database has **Row Level Security (RLS)** enabled, which blocks inserts from Supabase Auth.
 
 ## 🚀 Quick Fix - DO THIS NOW:
 
@@ -48,7 +48,7 @@ Click **Run** ▶️
    - ✅ `title`
    - ✅ `description`
    - ✅ `cover_image_url` (the Supabase Storage URL)
-   - ✅ `user_id` (your Firebase user ID)
+   - ✅ `user_id` (your user ID)
 
 3. Go to **Storage** > `collection-images` > `collection-covers`
 4. You should see folders organized by user ID with your images
@@ -85,7 +85,7 @@ const collections = await getUserCollections(userId);
 Once you confirm it works:
 
 1. **For Production**: Implement proper RLS policies based on your auth system
-2. **Consider**: Migrating from Firebase Auth to Supabase Auth for consistency
+2. **Consider**: Implementing proper RLS policies for Supabase Auth
 3. **Add**: Image deletion when collection is deleted
 4. **Implement**: Collection editing feature
 
@@ -98,11 +98,11 @@ Once you confirm it works:
 
 ### Images uploading but URL is empty?
 - Check the `uploadCollectionImage` function is returning the URL
-- Verify the user is logged in (Firebase Auth)
+- Verify the user is logged in (Supabase Auth)
 
 ### Can't see collections?
 - Check `getUserCollections` is being called
 - Look at Network tab to see Supabase API calls
-- Verify `user_id` matches your Firebase user ID
+- Verify `user_id` matches your user ID
 
 Murag kani ang issue! Run lang ang SQL command ug mag-work na! 🎉

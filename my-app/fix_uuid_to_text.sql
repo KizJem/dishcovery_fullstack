@@ -1,4 +1,4 @@
--- FIX: Change user_id from UUID to TEXT to support Firebase Auth IDs
+-- FIX: Change user_id from UUID to TEXT to support Auth IDs
 
 -- Step 1: Drop the foreign key constraint (references auth.users)
 ALTER TABLE collections 
