@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
+import CollectionForm from "../../components/CollectionForm";
 import { onAuthStateChange } from "../../lib/auth";
-import { uploadCollectionImage } from "../../lib/supabase";
 import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes } from "../../lib/database";
 
 export default function Profile() {
@@ -15,11 +15,6 @@ export default function Profile() {
   const [sortOpen, setSortOpen] = useState<boolean>(false);
   const [collections, setCollections] = useState<any>({});
   const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
-  const [newCollectionName, setNewCollectionName] = useState<string>("");
-  const [newCollectionDesc, setNewCollectionDesc] = useState<string>("");
-  const [collectionImage, setCollectionImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
-  const [isUploading, setIsUploading] = useState<boolean>(false);
   const router = useRouter();
 
   const storageKey = (userId?: string) => `dishcovery_favorites_${userId || "guest"}`;
@@ -117,81 +112,6 @@ export default function Profile() {
       localStorage.setItem(key, JSON.stringify(next || {}));
     } catch (e) {
       console.error("Failed to save collections", e);
-    }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCollectionImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCreateCollection = async () => {
-    if (!newCollectionName.trim()) return;
-    if (!user?.id) {
-      alert("You must be logged in to create a collection");
-      return;
-    }
-    
-    setIsUploading(true);
-    try {
-      let coverImageUrl = "";
-
-      // Upload image to Supabase Storage if file is selected
-      if (collectionImage) {
-        console.log("📤 Uploading image to Supabase...");
-        const tempId = Date.now().toString();
-        coverImageUrl = await uploadCollectionImage(collectionImage, tempId, user.id);
-        console.log("✅ Image uploaded:", coverImageUrl);
-      }
-
-      // Create collection in Supabase Database
-      console.log("📝 Creating collection in database...");
-      const newCollection = await createCollection(
-        user.id,
-        newCollectionName.trim(),
-        newCollectionDesc.trim(),
-        coverImageUrl
-      );
-
-      if (!newCollection) {
-        throw new Error("Failed to create collection in database");
-      }
-
-      console.log("✅ Collection created:", newCollection);
-      
-      // Refresh collections from database
-      const updatedCollections = await getUserCollections(user.id);
-      const collectionsMap: any = {};
-      updatedCollections.forEach((col: any) => {
-        collectionsMap[col.id] = {
-          id: col.id,
-          name: col.title,
-          description: col.description || "",
-          coverImage: col.cover_image_url || "",
-          recipes: [],
-          createdAt: new Date(col.created_at).getTime(),
-        };
-      });
-      setCollections(collectionsMap);
-      
-      // Reset form
-      setNewCollectionName("");
-      setNewCollectionDesc("");
-      setCollectionImage(null);
-      setImagePreview("");
-      setShowCreateDialog(false);
-    } catch (error: any) {
-      console.error("❌ Failed to create collection:", error);
-      alert(`Failed to create collection: ${error.message}`);
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -510,180 +430,70 @@ const profileStyles = {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 2000,
+            padding: 20,
           }}
-          onClick={() => {
-            setShowCreateDialog(false);
-            setNewCollectionName("");
-            setNewCollectionDesc("");
-          }}
+          onClick={() => setShowCreateDialog(false)}
         >
           <div
             style={{
               background: "#fff",
               borderRadius: 16,
               padding: 32,
-              maxWidth: 480,
-              width: "90%",
+              maxWidth: 600,
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
               boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
             }}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: "0 0 20px 0", fontSize: 20 }}>Create new collection</h3>
-            
-            {/* Image Upload Section */}
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                Cover Image (optional)
-              </label>
-              <div
-                style={{
-                  border: "2px dashed #ddd",
-                  borderRadius: 12,
-                  padding: 20,
-                  textAlign: "center",
-                  cursor: "pointer",
-                  background: imagePreview ? "transparent" : "#f9f9f9",
-                  position: "relative",
-                  minHeight: 120,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onClick={() => document.getElementById("collection-image-input")?.click()}
-              >
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: 200,
-                      borderRadius: 8,
-                      objectFit: "contain",
-                    }}
-                  />
-                ) : (
-                  <div>
-                    <p style={{ margin: 0, color: "#666", fontSize: 14 }}>📷 Click to upload image</p>
-                    <p style={{ margin: "4px 0 0 0", color: "#999", fontSize: 12 }}>JPG, PNG (max 5MB)</p>
-                  </div>
-                )}
-                <input
-                  id="collection-image-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  style={{ display: "none" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                Collection name
-              </label>
-              <input
-                type="text"
-                value={newCollectionName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCollectionName(e.target.value)}
-                placeholder="Enter collection name"
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  fontSize: 14,
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 24 }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                Description (optional)
-              </label>
-              <textarea
-                value={newCollectionDesc}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewCollectionDesc(e.target.value)}
-                placeholder="Add a description"
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  fontSize: 14,
-                  outline: "none",
-                  resize: "vertical",
-                  minHeight: 80,
-                  boxSizing: "border-box",
-                  fontFamily: "inherit",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: 12 }}>
-              <button
-                onClick={() => {
-                  setShowCreateDialog(false);
-                  setNewCollectionName("");
-                  setNewCollectionDesc("");
-                  setCollectionImage(null);
-                  setImagePreview("");
-                }}
-                style={{
-                  flex: 1,
-                  padding: "12px 24px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  cursor: "pointer",
-                  fontSize: 15,
-                  fontWeight: 500,
-                }}
-                disabled={isUploading}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateCollection}
-                disabled={!newCollectionName.trim() || isUploading}
-                style={{
-                  flex: 1,
-                  padding: "12px 24px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: (newCollectionName.trim() && !isUploading) ? "#FF9E00" : "#ccc",
-                  color: "#fff",
-                  cursor: (newCollectionName.trim() && !isUploading) ? "pointer" : "not-allowed",
-                  fontSize: 15,
-                  fontWeight: 500,
-                }}
-              >
-                {isUploading ? "Creating..." : "Create"}
-              </button>
-            </div>
+            <CollectionForm
+              userId={user.id}
+              onSuccess={async () => {
+                setShowCreateDialog(false);
+                // Refresh collections from database
+                const updatedCollections = await getUserCollections(user.id);
+                const collectionsMap: any = {};
+                
+                // Load recipes for each collection
+                await Promise.all(updatedCollections.map(async (col: any) => {
+                  try {
+                    const recipes = await getCollectionRecipes(col.id);
+                    collectionsMap[col.id] = {
+                      id: col.id,
+                      title: col.title,
+                      name: col.title,
+                      description: col.description || "",
+                      cover_image_url: col.cover_image_url || "",
+                      coverImage: col.cover_image_url || "",
+                      recipes: recipes.map((r: any) => ({
+                        id: r.id,
+                        title: r.title,
+                        image: r.image_url,
+                        image_url: r.image_url,
+                      })),
+                      createdAt: new Date(col.created_at).getTime(),
+                      created_at: col.created_at,
+                    };
+                  } catch (recipeError) {
+                    collectionsMap[col.id] = {
+                      id: col.id,
+                      title: col.title,
+                      name: col.title,
+                      description: col.description || "",
+                      cover_image_url: col.cover_image_url || "",
+                      coverImage: col.cover_image_url || "",
+                      recipes: [],
+                      createdAt: new Date(col.created_at).getTime(),
+                      created_at: col.created_at,
+                    };
+                  }
+                }));
+                
+                setCollections(collectionsMap);
+              }}
+              onCancel={() => setShowCreateDialog(false)}
+            />
           </div>
         </div>
       )}

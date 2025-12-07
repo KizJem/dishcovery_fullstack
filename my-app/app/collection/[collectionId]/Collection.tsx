@@ -633,14 +633,18 @@ export default function CollectionView() {
                 onClick={() => setShowDeleteDialog(false)}
                 style={{
                   flex: 1,
-                  padding: "12px 24px",
+                  padding: "10px 20px",
                   borderRadius: 12,
                   border: "1px solid #ddd",
                   background: "#fff",
                   cursor: "pointer",
-                  fontSize: 15,
-                  fontWeight: 500,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
               >
                 Cancel
               </button>
@@ -648,15 +652,18 @@ export default function CollectionView() {
                 onClick={handleDeleteCollection}
                 style={{
                   flex: 1,
-                  padding: "12px 24px",
+                  padding: "10px 20px",
                   borderRadius: 12,
                   border: "none",
                   background: "#FF9E00",
                   color: "#fff",
                   cursor: "pointer",
-                  fontSize: 15,
-                  fontWeight: 500,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
               >
                 Confirm
               </button>
