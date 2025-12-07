@@ -292,9 +292,13 @@ export default function CollectionView() {
                 border: "none",
                 cursor: "pointer",
                 fontSize: 24,
-                padding: "8px 12px",
-                borderRadius: 8,
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
               aria-label="More options"
             >
@@ -375,10 +379,9 @@ export default function CollectionView() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid #eee",
-                background: "#fff",
+                padding: 0,
+                border: "none",
+                background: "transparent",
                 cursor: "pointer",
               }}
               aria-expanded={sortOpen}
@@ -392,7 +395,7 @@ export default function CollectionView() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 600, color: "#222" }}>
                 {sort === "newest"
                   ? "Newest"
                   : sort === "oldest"
