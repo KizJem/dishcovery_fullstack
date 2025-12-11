@@ -451,9 +451,11 @@ export default function Explore() {
         {showSignInModal && (
           <div style={styles.modalOverlay} role="dialog" aria-modal="true">
             <div style={styles.modalBox}>
-              <h2 style={{ marginTop: 0 }}>Sign In Required</h2>
-              <p style={{ color: "#444" }}>You need to sign in to your account before you can add this to your favorites.</p>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 18 }}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, textAlign: "center", fontSize: 24, fontWeight: 700 }}>Sign In Required</h2>
+              <p style={{ color: "#333", fontSize: 16, lineHeight: 1.5, marginBottom: 24 }}>
+                You need to sign in to your account before you can add this to your favorites.
+              </p>
+              <div style={{ display: "flex", gap: 12 }}>
                 <button
                   onClick={() => { setShowSignInModal(false); setPendingRecipe(null); }}
                   style={styles.modalCancel}
@@ -751,26 +753,34 @@ const styles = {
     zIndex: 2000,
   },
   modalBox: {
-    width: "min(520px, 92%)",
-    maxWidth: 520,
+    width: "min(480px, 92%)",
+    maxWidth: 480,
     background: "#fff",
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: "32px 24px 24px",
     boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
   },
   modalCancel: {
-    padding: "10px 20px",
-    borderRadius: 999,
-    border: "1px solid #ddd",
+    flex: 1,
+    padding: "12px 20px",
+    borderRadius: 10,
+    border: "1.5px solid #ddd",
     background: "#fff",
     cursor: "pointer",
+    fontSize: 15,
+    fontWeight: 500,
+    transition: "all 0.2s ease",
   },
   modalConfirm: {
-    padding: "10px 20px",
-    borderRadius: 999,
+    flex: 1,
+    padding: "12px 20px",
+    borderRadius: 10,
     border: "none",
     background: "#FF9E00",
     color: "#fff",
     cursor: "pointer",
+    fontSize: 15,
+    fontWeight: 500,
+    transition: "all 0.2s ease",
   },
 };
