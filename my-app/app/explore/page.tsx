@@ -24,6 +24,7 @@ export default function Explore() {
   const [showAddToCollectionDialog, setShowAddToCollectionDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [recipesInCollections, setRecipesInCollections] = useState<Set<string>>(new Set());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -85,25 +86,34 @@ export default function Explore() {
     
     async function loadCollections() {
       try {
-        const { getUserCollections } = await import('../../lib/database');
+        const { getUserCollections, getCollectionRecipes } = await import('../../lib/database');
         const collectionsData = await getUserCollections(user.id);
         
         // Convert to the format expected by the UI
         const collectionsMap: { [key: string]: any } = {};
-        collectionsData.forEach((col) => {
+        const allRecipeIds = new Set<string>();
+        
+        // Load recipes for each collection to track which recipes are bookmarked
+        for (const col of collectionsData) {
+          const recipes = await getCollectionRecipes(col.id);
+          recipes.forEach((recipe) => allRecipeIds.add(String(recipe.id)));
+          
           collectionsMap[col.id] = {
             id: col.id,
             name: col.title,
             description: col.description || "",
             coverImage: col.cover_image_url || "",
-            recipes: [],
+            recipes: recipes,
             createdAt: new Date(col.created_at).getTime(),
           };
-        });
+        }
+        
         setCollections(collectionsMap);
+        setRecipesInCollections(allRecipeIds);
       } catch (e) {
         console.error("Failed to load collections from Supabase", e);
         setCollections({});
+        setRecipesInCollections(new Set());
       }
     }
     
@@ -251,7 +261,7 @@ export default function Explore() {
     if (!selectedRecipe || !user?.id) return;
     
     try {
-      const { addRecipeToCollection } = await import('../../lib/database');
+      const { addRecipeToCollection, getUserCollections, getCollectionRecipes } = await import('../../lib/database');
       
       // Add recipe to each selected collection in Supabase
       for (const collectionId of selectedCollections) {
@@ -266,21 +276,28 @@ export default function Explore() {
       }
       
       // Reload collections to reflect changes
-      const { getUserCollections } = await import('../../lib/database');
       const collectionsData = await getUserCollections(user.id);
       
       const collectionsMap: { [key: string]: any } = {};
-      collectionsData.forEach((col) => {
+      const allRecipeIds = new Set<string>();
+      
+      // Load recipes for each collection to update the bookmarked state
+      for (const col of collectionsData) {
+        const recipes = await getCollectionRecipes(col.id);
+        recipes.forEach((recipe) => allRecipeIds.add(String(recipe.id)));
+        
         collectionsMap[col.id] = {
           id: col.id,
           name: col.title,
           description: col.description || "",
           coverImage: col.cover_image_url || "",
-          recipes: [],
+          recipes: recipes,
           createdAt: new Date(col.created_at).getTime(),
         };
-      });
+      }
+      
       setCollections(collectionsMap);
+      setRecipesInCollections(allRecipeIds);
     } catch (e) {
       console.error("❌ Failed to add recipe to collections:", e);
       alert("Failed to add recipe to collections");
@@ -411,7 +428,11 @@ export default function Explore() {
                             style={styles.heartButton}
                             aria-label="Add to collection"
                           >
-                            <FaRegBookmark size={16} />
+                            {recipesInCollections.has(String(id)) ? (
+                              <FaBookmark size={16} color="#FFD700" />
+                            ) : (
+                              <FaRegBookmark size={16} />
+                            )}
                           </button>
                           <button
                             onClick={() => handleToggleFavorite(r)}
@@ -566,13 +587,13 @@ export default function Explore() {
                     router.push("/profile");
                   }}
                   style={{
-                    padding: "12px 24px",
+                    padding: "8px 16px",
                     borderRadius: 25,
                     border: "1px solid #FF9E00",
                     background: "#fff",
                     color: "#FF9E00",
                     cursor: "pointer",
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: 600,
                     marginBottom: 12,
                   }}
