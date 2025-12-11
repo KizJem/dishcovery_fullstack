@@ -11,12 +11,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Test connection
-if (typeof window !== 'undefined') {
-  console.log('🔗 Supabase client initialized');
-  console.log('URL:', supabaseUrl);
-}
-
 // Upload image to Supabase Storage
 export async function uploadCollectionImage(file: File, collectionId: string, userId: string) {
   // Validate inputs

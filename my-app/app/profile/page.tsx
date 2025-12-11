@@ -70,9 +70,7 @@ export default function Profile() {
     // Load collections from Supabase Database
     async function loadCollections() {
       try {
-        console.log("📥 Loading collections from Supabase...");
         const collectionsData = await getUserCollections(user.id);
-        console.log("✅ Loaded collections:", collectionsData);
         
         // Convert to the format expected by the UI and load recipes for each
         const collectionsMap: any = {};
@@ -658,13 +656,10 @@ const profileStyles = {
                     
                     // Upload new profile image if selected
                     if (editCoverImage && user?.id) {
-                      console.log('📤 Uploading profile image...');
                       avatarUrl = await uploadProfileImage(editCoverImage, user.id);
-                      console.log('✅ Profile image uploaded:', avatarUrl);
                     }
                     
                     // Save to database
-                    console.log('💾 Saving profile to database...');
                     const updatedProfile = await upsertUserProfile(
                       user.id,
                       editUsername,
@@ -674,8 +669,6 @@ const profileStyles = {
                     if (!updatedProfile) {
                       throw new Error('Failed to save profile');
                     }
-                    
-                    console.log('✅ Profile saved successfully!');
                     
                     // Update local state
                     setUserProfile(updatedProfile);

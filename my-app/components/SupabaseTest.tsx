@@ -12,7 +12,6 @@ export default function SupabaseTest() {
     async function testConnection() {
       try {
         // Test 1: Check Supabase connection
-        console.log('🔍 Testing Supabase connection...');
         setStatus('Checking connection...');
 
         // Test 2: Try to query collections table
@@ -25,7 +24,6 @@ export default function SupabaseTest() {
           console.error('❌ Error:', error);
           setStatus(`Error: ${error.message || JSON.stringify(error)}`);
         } else {
-          console.log('✅ Success! Data:', data);
           setCollections(data || []);
           setStatus('✅ Connection successful!');
         }

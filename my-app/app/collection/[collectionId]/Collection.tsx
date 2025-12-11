@@ -53,7 +53,6 @@ export default function CollectionView() {
     async function loadCollectionData() {
       try {
         setLoading(true);
-        console.log("📥 Loading collection:", collectionId);
         
         // Fetch collection details
         const collectionData = await getCollection(collectionId);
@@ -63,12 +62,10 @@ export default function CollectionView() {
           return;
         }
         
-        console.log("✅ Collection loaded:", collectionData);
         setCollection(collectionData);
         
         // Fetch recipes in the collection
         const recipesData = await getCollectionRecipes(collectionId);
-        console.log("✅ Recipes loaded:", recipesData.length);
         setRecipes(recipesData);
       } catch (e) {
         console.error("Failed to load collection", e);
@@ -83,10 +80,8 @@ export default function CollectionView() {
 
   const handleDeleteCollection = async () => {
     try {
-      console.log("🗑️ Deleting collection:", collectionId);
       const success = await deleteCollection(collectionId);
       if (success) {
-        console.log("✅ Collection deleted");
         router.push("/profile");
       } else {
         console.error("Failed to delete collection");
@@ -100,10 +95,8 @@ export default function CollectionView() {
 
   const handleRemoveFromCollection = async (recipeId: string) => {
     try {
-      console.log("🗑️ Removing recipe from collection:", recipeId);
       const success = await removeRecipeFromCollection(collectionId, recipeId);
       if (success) {
-        console.log("✅ Recipe removed");
         // Refresh recipes list
         const updatedRecipes = await getCollectionRecipes(collectionId);
         setRecipes(updatedRecipes);

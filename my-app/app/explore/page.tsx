@@ -281,8 +281,6 @@ export default function Explore() {
         };
       });
       setCollections(collectionsMap);
-      
-      console.log("✅ Recipe added to collections successfully");
     } catch (e) {
       console.error("❌ Failed to add recipe to collections:", e);
       alert("Failed to add recipe to collections");

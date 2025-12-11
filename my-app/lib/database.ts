@@ -46,8 +46,6 @@ import { supabase } from './supabase';
 // Fetch all collections for the current user
 export async function getUserCollections(userId: string): Promise<Collection[]> {
   try {
-    console.log('🔍 Fetching collections for user:', userId);
-    
     const { data, error } = await supabase
       .from('collections')
       .select('*')
@@ -60,7 +58,6 @@ export async function getUserCollections(userId: string): Promise<Collection[]> 
       return [];
     }
 
-    console.log('✅ Collections fetched:', data?.length || 0);
     return data || [];
   } catch (err) {
     console.error('❌ Exception in getUserCollections:', err);
@@ -92,8 +89,6 @@ export async function createCollection(
   coverImageUrl?: string
 ): Promise<Collection | null> {
   try {
-    console.log('📝 Creating collection:', { userId, title, coverImageUrl });
-    
     // Get the current authenticated user to verify
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -101,8 +96,6 @@ export async function createCollection(
       console.error('❌ Not authenticated:', authError);
       throw new Error('You must be logged in to create a collection');
     }
-    
-    console.log('✅ Authenticated user:', user.id);
     
     // Verify the userId matches the authenticated user
     if (user.id !== userId) {
@@ -131,7 +124,6 @@ export async function createCollection(
       throw error;
     }
 
-    console.log('✅ Collection created:', data);
     return data;
   } catch (err) {
     console.error('❌ Exception in createCollection:', err);
@@ -180,8 +172,6 @@ export async function deleteCollection(collectionId: string): Promise<boolean> {
 // Get all recipes in a collection
 export async function getCollectionRecipes(collectionId: string): Promise<Recipe[]> {
   try {
-    console.log('🔍 Fetching recipes for collection:', collectionId);
-    
     // First, get the recipe IDs from collection_recipes
     const { data: collectionRecipes, error: linkError } = await supabase
       .from('collection_recipes')
@@ -195,11 +185,8 @@ export async function getCollectionRecipes(collectionId: string): Promise<Recipe
     }
     
     if (!collectionRecipes || collectionRecipes.length === 0) {
-      console.log('✅ No recipes in this collection yet');
       return [];
     }
-    
-    console.log(`📋 Found ${collectionRecipes.length} recipe links`);
     
     // Now fetch the actual recipe details
     const recipeIds = collectionRecipes.map(cr => cr.recipe_id);
@@ -213,7 +200,6 @@ export async function getCollectionRecipes(collectionId: string): Promise<Recipe
       return [];
     }
     
-    console.log(`✅ Successfully fetched ${recipes?.length || 0} recipes`);
     return recipes || [];
     
   } catch (err) {
@@ -228,8 +214,6 @@ export async function addRecipeToCollection(
   recipeData: { id: string; title: string; image?: string; description?: string }
 ): Promise<boolean> {
   try {
-    console.log('📝 Adding recipe to collection:', { collectionId, recipeId: recipeData.id });
-    
     // First, ensure the recipe exists in the recipes table
     const { error: recipeError } = await supabase
       .from('recipes')
@@ -248,8 +232,6 @@ export async function addRecipeToCollection(
       console.error('Recipe error details:', JSON.stringify(recipeError, null, 2));
       return false;
     }
-    
-    console.log('✅ Recipe upserted successfully');
 
     // Check if this recipe is already in the collection
     const { data: existing } = await supabase
@@ -260,7 +242,6 @@ export async function addRecipeToCollection(
       .single();
     
     if (existing) {
-      console.log('ℹ️ Recipe already in collection');
       return true;
     }
 
@@ -282,7 +263,6 @@ export async function addRecipeToCollection(
       return false;
     }
 
-    console.log('✅ Recipe linked to collection successfully');
     return true;
   } catch (err) {
     console.error('❌ Exception in addRecipeToCollection:', err);
@@ -312,8 +292,6 @@ export async function removeRecipeFromCollection(
 // Get user profile
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   try {
-    console.log('🔍 Fetching user profile for:', userId);
-    
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
@@ -323,14 +301,12 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     if (error) {
       if (error.code === 'PGRST116') {
         // No profile found, return null
-        console.log('ℹ️ No profile found for user');
         return null;
       }
       console.error('❌ Error fetching user profile:', error);
       return null;
     }
 
-    console.log('✅ User profile fetched:', data);
     return data;
   } catch (err) {
     console.error('❌ Exception in getUserProfile:', err);
@@ -346,8 +322,6 @@ export async function upsertUserProfile(
   bio?: string
 ): Promise<UserProfile | null> {
   try {
-    console.log('💾 Upserting user profile:', { userId, username, avatarUrl });
-    
     const { data, error } = await supabase
       .from('user_profiles')
       .upsert({
@@ -367,7 +341,6 @@ export async function upsertUserProfile(
       throw error;
     }
 
-    console.log('✅ User profile upserted successfully:', data);
     return data;
   } catch (err) {
     console.error('❌ Exception in upsertUserProfile:', err);
