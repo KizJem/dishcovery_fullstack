@@ -258,7 +258,17 @@ export default function Explore() {
   };
 
   const handleConfirmAddToCollection = async () => {
-    if (!selectedRecipe || !user?.id) return;
+    if (!selectedRecipe || !user?.id) {
+      console.log("⚠️ Missing required data:", { selectedRecipe, userId: user?.id });
+      return;
+    }
+    
+    if (selectedCollections.length === 0) {
+      console.log("⚠️ No collections selected");
+      return;
+    }
+
+    console.log("✅ Adding recipe to collections:", selectedCollections);
     
     try {
       const { addRecipeToCollection, getUserCollections, getCollectionRecipes } = await import('../../lib/database');
@@ -272,7 +282,9 @@ export default function Explore() {
           description: selectedRecipe.summary || "",
         };
         
-        await addRecipeToCollection(collectionId, recipeData);
+        console.log("Adding recipe to collection:", collectionId);
+        const success = await addRecipeToCollection(collectionId, recipeData);
+        console.log("Result:", success);
       }
       
       // Reload collections to reflect changes
@@ -298,14 +310,18 @@ export default function Explore() {
       
       setCollections(collectionsMap);
       setRecipesInCollections(allRecipeIds);
+      
+      console.log("✅ Successfully added recipe to collections");
     } catch (e) {
       console.error("❌ Failed to add recipe to collections:", e);
-      alert("Failed to add recipe to collections");
+      alert("Failed to add recipe to collections. Check console for details.");
+    } finally {
+      // Always close the dialog, even if there's an error
+      console.log("🔄 Closing dialog...");
+      setShowAddToCollectionDialog(false);
+      setSelectedRecipe(null);
+      setSelectedCollections([]);
     }
-
-    setShowAddToCollectionDialog(false);
-    setSelectedRecipe(null);
-    setSelectedCollections([]);
   };
 
   const toggleCollectionSelection = (collectionId: string) => {
