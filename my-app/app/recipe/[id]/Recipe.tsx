@@ -100,7 +100,7 @@ const styles = {
 
   mainGrid: {
     display: "grid",
-    gridTemplateColumns: "minmax(0,1fr) 340px",
+    gridTemplateColumns: "minmax(0,1fr) 280px",
     gap: 24,
   },
 
@@ -159,9 +159,8 @@ const styles = {
   sideKcal: { color: "#777", fontSize: 13, marginBottom: 8 },
 
   barRow: {
-    display: "grid",
-    gridTemplateColumns: "110px 1fr 48px",
-    gap: 10,
+    display: "flex",
+    justifyContent: "space-between",
     alignItems: "center",
     margin: "8px 0",
   },
@@ -464,9 +463,6 @@ export default function RecipeDetails() {
             {macroBars.map((m) => (
               <div key={m.label} style={styles.barRow}>
                 <div style={styles.barLabel}>{m.label}</div>
-                <div style={styles.barTrack}>
-                  <div style={styles.barFill(m.pct)} />
-                </div>
                 <div style={styles.barVal}>{m.value}</div>
               </div>
             ))}
@@ -477,9 +473,6 @@ export default function RecipeDetails() {
             {micronutrients.map((n) => (
               <div key={n.label} style={styles.barRow}>
                 <div style={styles.barLabel}>{n.label}</div>
-                <div style={styles.barTrack}>
-                  <div style={styles.barFill(n.pct)} />
-                </div>
                 <div style={styles.barVal}>{n.value}</div>
               </div>
             ))}
