@@ -37,8 +37,9 @@ export async function signInWithGoogle() {
 
 // Sign out
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  // Ignore "Auth session missing" errors as the user is already logged out
+  if (error && error.message !== 'Auth session missing!') throw error;
 }
 
 // Get current user

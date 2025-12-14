@@ -9,7 +9,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Set' : '❌ Missing');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'supabase.auth.token',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+});
 
 // Upload image to Supabase Storage
 export async function uploadCollectionImage(file: File, collectionId: string, userId: string) {

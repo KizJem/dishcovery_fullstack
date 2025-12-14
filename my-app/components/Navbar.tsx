@@ -136,7 +136,8 @@ export default function Navbar() {
                       onClick={async () => {
                         setOpen(false);
                         await signOut();
-                        router.push("/");
+                        // Force a full page reload to clear all client state
+                        window.location.href = "/";
                       }}
                     >
                       Log out
