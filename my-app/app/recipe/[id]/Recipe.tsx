@@ -6,8 +6,10 @@ import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
 import {
   FaUtensils, FaClock, FaFireAlt, FaHatCowboy, FaChevronLeft, FaDownload,
-  FaHeart, FaRegHeart
+  FaHeart, FaRegHeart, FaInstagram, FaTwitter, FaPinterest, FaFacebook
 } from "react-icons/fa";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const styles = {
   page: { padding: "20px 80px 20px", fontFamily: "Poppins, sans-serif" },
@@ -240,12 +242,212 @@ export default function RecipeDetails() {
   const { data, loading, err } = useRecipeDetails(id);
 
   const [liked, setLiked] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const get = (name: string) =>
     data?.nutrition?.nutrients?.find(
       (n: any) => n.name?.toLowerCase() === name.toLowerCase()
     );
   const calories = get("Calories")?.amount ?? null;
+
+  const downloadRecipePDF = async () => {
+    if (!data || downloading) return;
+    setDownloading(true);
+    
+    try {
+      // Create a hidden div for PDF content
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.position = 'absolute';
+      pdfContainer.style.left = '-9999px';
+      pdfContainer.style.top = '0';
+      pdfContainer.style.width = '800px';
+      pdfContainer.style.background = '#fff';
+      pdfContainer.style.fontFamily = 'Poppins, sans-serif';
+      pdfContainer.style.padding = '40px';
+      
+      // Build the PDF content HTML
+      const tagList = [
+        ...(data?.dishTypes || []),
+        ...(data?.diets || []),
+        ...(data?.cuisines || []),
+      ];
+      
+      const ingredients = data?.extendedIngredients || [];
+      const halfIndex = Math.ceil(ingredients.length / 2);
+      const ingredientsCol1 = ingredients.slice(0, halfIndex);
+      const ingredientsCol2 = ingredients.slice(halfIndex);
+      
+      const imageUrl = data?.image || '/food.png';
+      
+      pdfContainer.innerHTML = `
+        <div style="text-align: center; margin-bottom: 24px;">
+          <img id="recipe-pdf-image" src="${imageUrl}" 
+               style="width: 400px; height: 250px; object-fit: cover; border-radius: 16px; margin: 0 auto; display: block;" 
+               crossorigin="anonymous" />
+        </div>
+        
+        <h1 style="text-align: center; font-size: 32px; margin: 16px 0; font-weight: 700;">
+          <span style="color: #000;">${data?.title?.split(" ").slice(0, -1).join(" ") || "Recipe"}</span>
+          <span style="color: #FF9E00;"> ${data?.title?.split(" ").slice(-1)[0] || ""}</span>
+        </h1>
+        
+        <div style="display: flex; justify-content: space-between; margin: 20px 0; gap: 12px;">
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 11px; color: #777; margin-bottom: 4px;">Cuisine</div>
+            <div style="font-weight: 600; font-size: 14px;">${data?.cuisines?.[0] || "American Food"}</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 11px; color: #777; margin-bottom: 4px;">Servings</div>
+            <div style="font-weight: 600; font-size: 14px;">${data?.servings ? data.servings + " persons" : "—"}</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 11px; color: #777; margin-bottom: 4px;">Prep Time</div>
+            <div style="font-weight: 600; font-size: 14px;">${formatMinutes(data?.preparationMinutes)}</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 11px; color: #777; margin-bottom: 4px;">Cook Time</div>
+            <div style="font-weight: 600; font-size: 14px;">${formatMinutes(data?.cookingMinutes)}</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="font-size: 11px; color: #777; margin-bottom: 4px;">Difficulty</div>
+            <div style="font-weight: 600; font-size: 14px;">${data?.readyInMinutes ? (data.readyInMinutes > 45 ? "Intermediate Level" : "Easy") : "—"}</div>
+          </div>
+        </div>
+        
+        <div style="margin: 20px 0;">
+          <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">Tags</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${tagList.slice(0, 8).map(t => `
+              <span style="padding: 6px 12px; background: #FF9E00; border-radius: 999px; 
+                           font-size: 11px; color: #fff; font-weight: 500;">${t}</span>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 240px; gap: 20px; margin-top: 24px;">
+          <div>
+            <div style="background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; 
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Ingredients</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                  ${ingredientsCol1.map((ing) => `
+                    <div style="padding: 6px 0; font-size: 13px; line-height: 1.4;">
+                      ${IngText(ing)}
+                    </div>
+                  `).join('')}
+                </div>
+                <div>
+                  ${ingredientsCol2.map((ing) => `
+                    <div style="padding: 6px 0; font-size: 13px; line-height: 1.4;">
+                      ${IngText(ing)}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: #F9F9F9; border: 1px solid #eee; border-radius: 12px; 
+                      padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 8px 0;">Nutritional Info</h3>
+            <div style="font-size: 12px; color: #777; margin-bottom: 8px;">
+              ${calories ? Math.round(calories) + " kcal" : "—"}
+            </div>
+            ${macroBars.map(m => `
+              <div style="display: flex; justify-content: space-between; margin: 6px 0; font-size: 12px;">
+                <span>${m.label}</span>
+                <span style="color: #555;">${m.value}</span>
+              </div>
+            `).join('')}
+            ${micronutrients.map(n => `
+              <div style="display: flex; justify-content: space-between; margin: 6px 0; font-size: 12px;">
+                <span>${n.label}</span>
+                <span style="color: #555;">${n.value}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div style="background: #fff; border-radius: 12px; padding: 16px; margin-top: 16px; 
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Cooking Instructions</h3>
+          <div style="display: grid; gap: 8px;">
+            ${steps.map((s, i) => `
+              <div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; 
+                          background: #FAFAFA; border: 1px solid #EFEFEF; align-items: flex-start;">
+                <div style="min-width: 24px; height: 24px; border-radius: 50%; background: #fff; 
+                            color: #FF9E00; font-weight: 700; display: flex; align-items: center; 
+                            justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 2px;">
+                  ${i + 1}
+                </div>
+                <div style="flex: 1; font-size: 13px; line-height: 1.5;">${s}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid #eee;">
+          <div style="font-size: 13px; color: #777; margin-bottom: 8px;">
+            © ${new Date().getFullYear()} Dishcovery | All Rights Reserved
+          </div>
+          <div style="display: flex; justify-content: center; gap: 16px; font-size: 18px;">
+            <span style="color: #777;">ⓘ</span>
+            <span style="color: #777;">⊕</span>
+            <span style="color: #777;">⊞</span>
+            <span style="color: #777;">ⓕ</span>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(pdfContainer);
+      
+      // Wait for the image to load
+      const img = document.getElementById('recipe-pdf-image') as HTMLImageElement;
+      if (img && !img.complete) {
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = resolve; // Continue even if image fails to load
+          setTimeout(resolve, 3000); // Timeout after 3 seconds
+        });
+      }
+      
+      // Wait a bit more for rendering
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Generate canvas from the container
+      const canvas = await html2canvas(pdfContainer, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+      });
+      
+      // Remove the temporary container
+      document.body.removeChild(pdfContainer);
+      
+      // Create PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`${data.title.replace(/\s+/g, '_')}_recipe.pdf`);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const macroBars = useMemo(() => {
     const p = get("Protein")?.amount ?? 0;
@@ -406,10 +608,11 @@ export default function RecipeDetails() {
 
           <button
             style={styles.dlBtn}
-            onClick={() => window.print()}
+            onClick={downloadRecipePDF}
             title="Download Recipe PDF"
+            disabled={downloading || loading}
           >
-            <FaDownload /> Download Recipe PDF
+            <FaDownload /> {downloading ? "Generating PDF..." : "Download Recipe PDF"}
           </button>
         </div>
 
