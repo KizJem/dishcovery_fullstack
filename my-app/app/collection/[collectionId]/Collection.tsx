@@ -29,6 +29,8 @@ export default function CollectionView() {
   const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<any>({});
+  const [selectedRecipes, setSelectedRecipes] = useState<Set<string>>(new Set());
+  const [showBulkRemoveDialog, setShowBulkRemoveDialog] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -133,6 +135,45 @@ export default function CollectionView() {
     } catch (e) {
       console.error("Failed to remove recipe from collection", e);
       alert("Failed to remove recipe. Please try again.");
+    }
+  };
+
+  const handleToggleRecipeSelection = (recipeId: string) => {
+    setSelectedRecipes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRecipes.size === sortedList.length) {
+      setSelectedRecipes(new Set());
+    } else {
+      setSelectedRecipes(new Set(sortedList.map((r) => String(r.id))));
+    }
+  };
+
+  const handleBulkRemove = async () => {
+    try {
+      const removePromises = Array.from(selectedRecipes).map((recipeId) =>
+        removeRecipeFromCollection(collectionId, recipeId)
+      );
+      
+      await Promise.all(removePromises);
+      
+      // Refresh recipes list
+      const updatedRecipes = await getCollectionRecipes(collectionId);
+      setRecipes(updatedRecipes);
+      setSelectedRecipes(new Set());
+      setShowBulkRemoveDialog(false);
+    } catch (e) {
+      console.error("Failed to remove recipes from collection", e);
+      alert("Failed to remove some recipes. Please try again.");
     }
   };
 
@@ -412,9 +453,53 @@ export default function CollectionView() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <p style={{ color: "#999", fontSize: 14, margin: 0 }}>
-            {recipes.length} {recipes.length === 1 ? "Recipe" : "Recipes"}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <p style={{ color: "#999", fontSize: 14, margin: 0 }}>
+              {recipes.length} {recipes.length === 1 ? "Recipe" : "Recipes"}
+            </p>
+            {recipes.length > 0 && (
+              <>
+                <button
+                  onClick={handleSelectAll}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "#222",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  {selectedRecipes.size === sortedList.length ? "Deselect All" : "Select All"}
+                </button>
+                {selectedRecipes.size > 0 && (
+                  <button
+                    onClick={() => setShowBulkRemoveDialog(true)}
+                    style={{
+                      padding: "6px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#FF9E00",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+                  >
+                    Remove Selected ({selectedRecipes.size})
+                  </button>
+                )}
+              </>
+            )}
+          </div>
 
           <div style={{ position: "relative" }}>
             <button
@@ -550,34 +635,66 @@ export default function CollectionView() {
             {sortedList.map((r) => (
               <div 
                 key={r.id} 
-                style={collectionStyles.card}
+                style={{
+                  ...collectionStyles.card,
+                  position: "relative",
+                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.05)";
                   e.currentTarget.style.transition = "transform 0.3s ease";
                 }}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
               >
-                <div style={collectionStyles.cardHeader}>
-                  <h3 style={collectionStyles.titleClamp}>{r.title}</h3>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>                    
-                    <button
-                      onClick={() => handleRemoveRecipeClick(r)}
-                      style={collectionStyles.heartButton}
-                      aria-label="Remove from collection"
-                    >
-                      <FaBookmark size={16} color="#FFD700" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleFavorite(r)}
-                      style={collectionStyles.heartButton}
-                      aria-label={favorites[String(r.id)] ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      {favorites[String(r.id)] ? (
-                        <FaHeart color="red" size={18} />
-                      ) : (
-                        <FaRegHeart size={18} />
-                      )}
-                    </button>
+                <div style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  marginBottom: 8,
+                }}>
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedRecipes.has(String(r.id))}
+                    onChange={() => handleToggleRecipeSelection(String(r.id))}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: "pointer",
+                      accentColor: "#FF9E00",
+                      marginTop: 2,
+                      flexShrink: 0,
+                    }}
+                  />
+                  
+                  <div style={{ 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "flex-start",
+                    flex: 1,
+                    gap: 8,
+                  }}>
+                    <h3 style={collectionStyles.titleClamp}>{r.title}</h3>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>                    
+                      <button
+                        onClick={() => handleRemoveRecipeClick(r)}
+                        style={collectionStyles.heartButton}
+                        aria-label="Remove from collection"
+                      >
+                        <FaBookmark size={16} color="#FFD700" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleFavorite(r)}
+                        style={collectionStyles.heartButton}
+                        aria-label={favorites[String(r.id)] ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        {favorites[String(r.id)] ? (
+                          <FaHeart color="red" size={18} />
+                        ) : (
+                          <FaRegHeart size={18} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <img
@@ -797,6 +914,79 @@ export default function CollectionView() {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Remove Dialog */}
+      {showBulkRemoveDialog && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+          onClick={() => setShowBulkRemoveDialog(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Multiple Recipes</h3>
+            <p style={{ color: "#666", marginBottom: 24 }}>
+              Are you sure you want to remove {selectedRecipes.size} {selectedRecipes.size === 1 ? "recipe" : "recipes"} from this collection?
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => setShowBulkRemoveDialog(false)}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkRemove}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#FF9E00",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+              >
+                Remove
               </button>
             </div>
           </div>
