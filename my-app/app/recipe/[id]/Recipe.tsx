@@ -317,7 +317,7 @@ export default function RecipeDetails() {
         <div style="margin: 20px 0;">
           <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">Tags</h3>
           <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-            ${tagList.slice(0, 8).map(t => `
+            ${tagList.slice(0, 8).map((t: string) => `
               <span style="padding: 6px 12px; background: #FF9E00; border-radius: 999px; 
                            font-size: 11px; color: #fff; font-weight: 500;">${t}</span>
             `).join('')}
@@ -331,14 +331,14 @@ export default function RecipeDetails() {
               <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Ingredients</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div>
-                  ${ingredientsCol1.map((ing) => `
+                  ${ingredientsCol1.map((ing: any) => `
                     <div style="padding: 6px 0; font-size: 13px; line-height: 1.4;">
                       ${IngText(ing)}
                     </div>
                   `).join('')}
                 </div>
                 <div>
-                  ${ingredientsCol2.map((ing) => `
+                  ${ingredientsCol2.map((ing: any) => `
                     <div style="padding: 6px 0; font-size: 13px; line-height: 1.4;">
                       ${IngText(ing)}
                     </div>
@@ -354,13 +354,13 @@ export default function RecipeDetails() {
             <div style="font-size: 12px; color: #777; margin-bottom: 8px;">
               ${calories ? Math.round(calories) + " kcal" : "—"}
             </div>
-            ${macroBars.map(m => `
+            ${macroBars.map((m: any) => `
               <div style="display: flex; justify-content: space-between; margin: 6px 0; font-size: 12px;">
                 <span>${m.label}</span>
                 <span style="color: #555;">${m.value}</span>
               </div>
             `).join('')}
-            ${micronutrients.map(n => `
+            ${micronutrients.map((n: any) => `
               <div style="display: flex; justify-content: space-between; margin: 6px 0; font-size: 12px;">
                 <span>${n.label}</span>
                 <span style="color: #555;">${n.value}</span>
@@ -373,7 +373,7 @@ export default function RecipeDetails() {
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Cooking Instructions</h3>
           <div style="display: grid; gap: 8px;">
-            ${steps.map((s, i) => `
+            ${steps.map((s: string, i: number) => `
               <div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; 
                           background: #FAFAFA; border: 1px solid #EFEFEF; align-items: flex-start;">
                 <div style="min-width: 24px; height: 24px; border-radius: 50%; background: #fff; 
@@ -599,7 +599,7 @@ export default function RecipeDetails() {
         {/* TAGS + DOWNLOAD */}
         <div style={styles.tagsRow}>
           <div style={styles.tagsWrap}>
-            {tagList.slice(0, 12).map((t, i) => (
+            {tagList.slice(0, 12).map((t: string, i: number) => (
               <span key={i} style={styles.pill}>
                 {t}
               </span>
