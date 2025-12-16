@@ -25,6 +25,9 @@ export default function Explore() {
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [recipesInCollections, setRecipesInCollections] = useState<Set<string>>(new Set());
+  const [recipeCollectionMap, setRecipeCollectionMap] = useState<Map<string, string[]>>(new Map());
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -92,11 +95,19 @@ export default function Explore() {
         // Convert to the format expected by the UI
         const collectionsMap: { [key: string]: any } = {};
         const allRecipeIds = new Set<string>();
+        const recipeToCollections = new Map<string, string[]>();
         
         // Load recipes for each collection to track which recipes are bookmarked
         for (const col of collectionsData) {
           const recipes = await getCollectionRecipes(col.id);
-          recipes.forEach((recipe) => allRecipeIds.add(String(recipe.id)));
+          recipes.forEach((recipe) => {
+            const recipeId = String(recipe.id);
+            allRecipeIds.add(recipeId);
+            if (!recipeToCollections.has(recipeId)) {
+              recipeToCollections.set(recipeId, []);
+            }
+            recipeToCollections.get(recipeId)!.push(col.id);
+          });
           
           collectionsMap[col.id] = {
             id: col.id,
@@ -110,10 +121,12 @@ export default function Explore() {
         
         setCollections(collectionsMap);
         setRecipesInCollections(allRecipeIds);
+        setRecipeCollectionMap(recipeToCollections);
       } catch (e) {
         console.error("Failed to load collections from Supabase", e);
         setCollections({});
         setRecipesInCollections(new Set());
+        setRecipeCollectionMap(new Map());
       }
     }
     
@@ -242,19 +255,29 @@ export default function Explore() {
     return tags.slice(0, 3);
   };
 
-  const handleAddToCollection = (recipe: any) => {
+  const handleBookmarkClick = (recipe: any) => {
     if (!user) {
       setPendingRecipe(recipe);
       setShowSignInModal(true);
       return;
     }
-    setSelectedRecipe(recipe);
-    // Check which collections already have this recipe
-    const recipeInCollections = Object.keys(collections).filter((cid) =>
-      collections[cid].recipes?.some((r: any) => r.id === recipe.id)
-    );
-    setSelectedCollections(recipeInCollections);
-    setShowAddToCollectionDialog(true);
+    
+    const recipeId = String(recipe.id);
+    const isInCollections = recipesInCollections.has(recipeId);
+    
+    if (isInCollections) {
+      // Show remove confirmation
+      setRecipeToRemove(recipe);
+      setShowRemoveDialog(true);
+    } else {
+      // Show add to collection dialog
+      setSelectedRecipe(recipe);
+      const recipeInCollections = Object.keys(collections).filter((cid) =>
+        collections[cid].recipes?.some((r: any) => r.id === recipe.id)
+      );
+      setSelectedCollections(recipeInCollections);
+      setShowAddToCollectionDialog(true);
+    }
   };
 
   const handleConfirmAddToCollection = async () => {
@@ -294,9 +317,17 @@ export default function Explore() {
       const allRecipeIds = new Set<string>();
       
       // Load recipes for each collection to update the bookmarked state
+      const recipeToCollections = new Map<string, string[]>();
       for (const col of collectionsData) {
         const recipes = await getCollectionRecipes(col.id);
-        recipes.forEach((recipe) => allRecipeIds.add(String(recipe.id)));
+        recipes.forEach((recipe) => {
+          const recipeId = String(recipe.id);
+          allRecipeIds.add(recipeId);
+          if (!recipeToCollections.has(recipeId)) {
+            recipeToCollections.set(recipeId, []);
+          }
+          recipeToCollections.get(recipeId)!.push(col.id);
+        });
         
         collectionsMap[col.id] = {
           id: col.id,
@@ -310,6 +341,7 @@ export default function Explore() {
       
       setCollections(collectionsMap);
       setRecipesInCollections(allRecipeIds);
+      setRecipeCollectionMap(recipeToCollections);
       
       console.log("✅ Successfully added recipe to collections");
     } catch (e) {
@@ -440,9 +472,9 @@ export default function Explore() {
                         <h3 style={styles.titleClamp}>{title}</h3>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                           <button
-                            onClick={() => handleAddToCollection(r)}
+                            onClick={() => handleBookmarkClick(r)}
                             style={styles.heartButton}
-                            aria-label="Add to collection"
+                            aria-label={recipesInCollections.has(String(id)) ? "Remove from collection" : "Add to collection"}
                           >
                             {recipesInCollections.has(String(id)) ? (
                               <FaBookmark size={16} color="#FFD700" />
@@ -655,6 +687,131 @@ export default function Explore() {
                     Confirm
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove from Collection Confirmation Dialog */}
+        {showRemoveDialog && recipeToRemove && (
+          <div
+            style={styles.modalOverlay}
+            onClick={() => {
+              setShowRemoveDialog(false);
+              setRecipeToRemove(null);
+            }}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: 32,
+                maxWidth: 440,
+                width: "90%",
+                boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Recipe from Collection</h3>
+              <p style={{ color: "#666", marginBottom: 24 }}>
+                Are you sure you want to remove this recipe from the selected collection? This action cannot be undone. Do you wish to proceed?
+              </p>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={() => {
+                    setShowRemoveDialog(false);
+                    setRecipeToRemove(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    borderRadius: 12,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#222",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!user?.id || !recipeToRemove) return;
+                    
+                    try {
+                      const { removeRecipeFromCollection, getUserCollections, getCollectionRecipes } = await import('../../lib/database');
+                      
+                      const recipeId = String(recipeToRemove.id);
+                      const collectionIds = recipeCollectionMap.get(recipeId) || [];
+                      
+                      // Remove recipe from all collections it belongs to
+                      for (const collectionId of collectionIds) {
+                        await removeRecipeFromCollection(collectionId, recipeId);
+                      }
+                      
+                      // Reload collections to reflect changes
+                      const collectionsData = await getUserCollections(user.id);
+                      
+                      const collectionsMap: { [key: string]: any } = {};
+                      const allRecipeIds = new Set<string>();
+                      const recipeToCollections = new Map<string, string[]>();
+                      
+                      for (const col of collectionsData) {
+                        const recipes = await getCollectionRecipes(col.id);
+                        recipes.forEach((recipe) => {
+                          const rId = String(recipe.id);
+                          allRecipeIds.add(rId);
+                          if (!recipeToCollections.has(rId)) {
+                            recipeToCollections.set(rId, []);
+                          }
+                          recipeToCollections.get(rId)!.push(col.id);
+                        });
+                        
+                        collectionsMap[col.id] = {
+                          id: col.id,
+                          name: col.title,
+                          description: col.description || "",
+                          coverImage: col.cover_image_url || "",
+                          recipes: recipes,
+                          createdAt: new Date(col.created_at).getTime(),
+                        };
+                      }
+                      
+                      setCollections(collectionsMap);
+                      setRecipesInCollections(allRecipeIds);
+                      setRecipeCollectionMap(recipeToCollections);
+                      
+                      console.log("✅ Successfully removed recipe from collections");
+                    } catch (e) {
+                      console.error("❌ Failed to remove recipe from collections:", e);
+                      alert("Failed to remove recipe from collections. Please try again.");
+                    } finally {
+                      setShowRemoveDialog(false);
+                      setRecipeToRemove(null);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "#FF9E00",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+                >
+                  Remove
+                </button>
               </div>
             </div>
           </div>

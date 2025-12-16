@@ -513,20 +513,6 @@ export default function CollectionView() {
                   alt={r.title}
                   style={collectionStyles.cardImg}
                 />
-                {r.description && (
-                  <p style={{ 
-                    fontSize: 13, 
-                    color: "#666", 
-                    margin: "8px 0 0 0",
-                    lineHeight: 1.4,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden"
-                  }}>
-                    {r.description}
-                  </p>
-                )}
                 <button
                   style={collectionStyles.seeRecipe}
                   onClick={() => router.push(`/recipe/${r.id}`)}
