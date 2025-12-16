@@ -49,6 +49,22 @@ input, textarea {
   }
 }
 
+/* Custom checkbox styling to ensure white checkmark */
+input[type="checkbox"] {
+  accent-color: #FF9E00;
+  color-scheme: light;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #FF9E00;
+  border-color: #FF9E00;
+}
+
+/* Force white checkmark using filter */
+input[type="checkbox"]:checked::after {
+  filter: brightness(0) invert(1);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

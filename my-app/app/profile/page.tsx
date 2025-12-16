@@ -27,6 +27,8 @@ export default function Profile() {
   const [collectionsToRemoveFrom, setCollectionsToRemoveFrom] = useState<string[]>([]);
   const [showRemoveFavoriteDialog, setShowRemoveFavoriteDialog] = useState<boolean>(false);
   const [favoriteToRemove, setFavoriteToRemove] = useState<any>(null);
+  const [selectedFavorites, setSelectedFavorites] = useState<Set<string>>(new Set());
+  const [showBulkRemoveFavoritesDialog, setShowBulkRemoveFavoritesDialog] = useState<boolean>(false);
   const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
   const [showEditDialog, setShowEditDialog] = useState<boolean>(false);
   const [editUsername, setEditUsername] = useState<string>("");
@@ -350,6 +352,47 @@ const profileStyles = {
     }
   };
 
+  const handleToggleFavoriteSelection = (favoriteId: string) => {
+    setSelectedFavorites((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(favoriteId)) {
+        newSet.delete(favoriteId);
+      } else {
+        newSet.add(favoriteId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllFavorites = () => {
+    if (selectedFavorites.size === sortedList.length) {
+      setSelectedFavorites(new Set());
+    } else {
+      setSelectedFavorites(new Set(sortedList.map((r) => String(r.id))));
+    }
+  };
+
+  const handleBulkRemoveFavorites = () => {
+    if (!user?.id) return;
+    const storageKey = `dishcovery_favorites_${user.id}`;
+    
+    setFavorites((prev: any) => {
+      const next = { ...(prev || {}) };
+      selectedFavorites.forEach((favId) => {
+        delete next[favId];
+      });
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save favorites", e);
+      }
+      return next;
+    });
+    
+    setSelectedFavorites(new Set());
+    setShowBulkRemoveFavoritesDialog(false);
+  };
+
   const sortedList = (() => {
     const arr: any[] = Object.values(favorites || {}).slice();
     switch (sort) {
@@ -414,7 +457,51 @@ const profileStyles = {
         <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #ddd" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ color: "#FF9E00", fontSize: "24px", fontWeight: "bold", margin: 0 }}>My favorites</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <h3 style={{ color: "#FF9E00", fontSize: "24px", fontWeight: "bold", margin: 0 }}>My favorites</h3>
+            {sortedList.length > 0 && (
+              <>
+                <button
+                  onClick={handleSelectAllFavorites}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "#222",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  {selectedFavorites.size === sortedList.length ? "Deselect All" : "Select All"}
+                </button>
+                {selectedFavorites.size > 0 && (
+                  <button
+                    onClick={() => setShowBulkRemoveFavoritesDialog(true)}
+                    style={{
+                      padding: "6px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#FF9E00",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+                  >
+                    Remove Selected ({selectedFavorites.size})
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           
           <div style={{ position: "relative" }}>
             <button
@@ -446,16 +533,47 @@ const profileStyles = {
               {sortedList.map((r: any) => (
                 <div 
                   key={r.id} 
-                  style={profileStyles.card}
+                  style={{
+                    ...profileStyles.card,
+                    position: "relative",
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "scale(1.05)";
                     e.currentTarget.style.transition = "transform 0.3s ease";
                   }}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                 >
-                  <div style={profileStyles.cardHeader}>
-                    <h3 style={profileStyles.titleClamp}>{r.title}</h3>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    marginBottom: 8,
+                  }}>
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={selectedFavorites.has(String(r.id))}
+                      onChange={() => handleToggleFavoriteSelection(String(r.id))}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        cursor: "pointer",
+                        accentColor: "#FF9E00",
+                        marginTop: 2,
+                        flexShrink: 0,
+                      }}
+                    />
+                    
+                    <div style={{ 
+                      display: "flex", 
+                      justifyContent: "space-between", 
+                      alignItems: "flex-start",
+                      flex: 1,
+                      gap: 8,
+                    }}>
+                      <h3 style={profileStyles.titleClamp}>{r.title}</h3>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                       <button
                         onClick={() => handleBookmarkClick(r)}
                         style={profileStyles.heartButton}
@@ -467,13 +585,14 @@ const profileStyles = {
                           <FaRegBookmark size={16} />
                         )}
                       </button>
-                      <button 
-                        onClick={() => handleUnfavorite(r)} 
-                        style={profileStyles.heartButton} 
-                        aria-label="unfavorite"
-                      >
-                        <FaHeart color="red" size={18} />
-                      </button>
+                        <button 
+                          onClick={() => handleUnfavorite(r)} 
+                          style={profileStyles.heartButton} 
+                          aria-label="unfavorite"
+                        >
+                          <FaHeart color="red" size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <img src={r.image || "/food.png"} alt={r.title} style={profileStyles.cardImg} loading="lazy" />
@@ -1343,6 +1462,79 @@ const profileStyles = {
               </button>
               <button
                 onClick={handleConfirmRemoveFavorite}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#FF9E00",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Remove Favorites Dialog */}
+      {showBulkRemoveFavoritesDialog && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+          onClick={() => setShowBulkRemoveFavoritesDialog(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Multiple Favorites</h3>
+            <p style={{ color: "#666", marginBottom: 24 }}>
+              Are you sure you want to remove {selectedFavorites.size} {selectedFavorites.size === 1 ? "favorite" : "favorites"}?
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => setShowBulkRemoveFavoritesDialog(false)}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkRemoveFavorites}
                 style={{
                   flex: 1,
                   padding: "10px 20px",
