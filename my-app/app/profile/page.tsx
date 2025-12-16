@@ -6,8 +6,9 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import CollectionForm from "../../components/CollectionForm";
 import { onAuthStateChange, updateUserProfile, getCurrentUser } from "../../lib/auth";
-import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes, getUserProfile, upsertUserProfile } from "../../lib/database";
+import { getUserCollections, createCollection, deleteCollection, getCollectionRecipes, getUserProfile, upsertUserProfile, addRecipeToCollection, removeRecipeFromCollection } from "../../lib/database";
 import { uploadProfileImage } from "../../lib/supabase";
+import { FaHeart, FaRegHeart, FaBookmark, FaRegBookmark } from "react-icons/fa";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -16,6 +17,14 @@ export default function Profile() {
   const [sort, setSort] = useState<string>("newest");
   const [sortOpen, setSortOpen] = useState<boolean>(false);
   const [collections, setCollections] = useState<any>({});
+  const [recipesInCollections, setRecipesInCollections] = useState<Set<string>>(new Set());
+  const [recipeCollectionMap, setRecipeCollectionMap] = useState<Map<string, string[]>>(new Map());
+  const [showAddToCollectionDialog, setShowAddToCollectionDialog] = useState<boolean>(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [showRemoveDialog, setShowRemoveDialog] = useState<boolean>(false);
+  const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
+  const [collectionsToRemoveFrom, setCollectionsToRemoveFrom] = useState<string[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
   const [showEditDialog, setShowEditDialog] = useState<boolean>(false);
   const [editUsername, setEditUsername] = useState<string>("");
@@ -74,11 +83,22 @@ export default function Profile() {
         
         // Convert to the format expected by the UI and load recipes for each
         const collectionsMap: any = {};
+        const allRecipeIds = new Set<string>();
+        const recipeToCollections = new Map<string, string[]>();
         
         // Load all collections with their recipes
         await Promise.all(collectionsData.map(async (col: any) => {
           try {
             const recipes = await getCollectionRecipes(col.id);
+            recipes.forEach((recipe: any) => {
+              const recipeId = String(recipe.id);
+              allRecipeIds.add(recipeId);
+              if (!recipeToCollections.has(recipeId)) {
+                recipeToCollections.set(recipeId, []);
+              }
+              recipeToCollections.get(recipeId)!.push(col.id);
+            });
+            
             collectionsMap[col.id] = {
               id: col.id,
               title: col.title,
@@ -113,9 +133,13 @@ export default function Profile() {
         }));
         
         setCollections(collectionsMap);
+        setRecipesInCollections(allRecipeIds);
+        setRecipeCollectionMap(recipeToCollections);
       } catch (e) {
         console.error("❌ Failed to load collections from Supabase:", e);
         setCollections({});
+        setRecipesInCollections(new Set());
+        setRecipeCollectionMap(new Map());
       }
     }
     
@@ -150,12 +174,12 @@ const profileStyles = {
   card: {
     background: "#fff",
     borderRadius: 16,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
     padding: 15,
     display: "flex",
     flexDirection: "column" as const,
     gap: 10,
-    transition: "transform 0.2s ease",
+    transition: "transform 0.3s ease",
   },
   cardHeader: {
     display: "flex",
@@ -164,7 +188,7 @@ const profileStyles = {
     gap: 8,
     minHeight: 48,
   },
-  heartButton: { background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#FF4D6D", flexShrink: 0 },
+  heartButton: { background: "none", border: "none", cursor: "pointer", flexShrink: 0 },
   titleClamp: {
     fontSize: 16,
     fontWeight: 600,
@@ -182,9 +206,10 @@ const profileStyles = {
     flexShrink: 0,
     borderRadius: 12,
     objectFit: "cover" as const,
+    objectPosition: "center",
     display: "block",
   },
-  tags: { display: "flex", gap: 8, flexWrap: "wrap" as const, minHeight: 28, marginTop: 6 },
+  tags: { display: "flex", gap: 8, flexWrap: "wrap" as const, minHeight: 28 },
   tag: { background: "#f5f5f5", padding: "4px 10px", borderRadius: 12, fontSize: 12 },
   seeRecipe: {
     marginTop: "auto",
@@ -196,7 +221,16 @@ const profileStyles = {
     cursor: "pointer",
     fontSize: 14,
     fontWeight: 500,
-    transition: "all 0.2s ease",
+    transition: "all 0.3s ease",
+  },
+  modalOverlay: {
+    position: "fixed" as const,
+    inset: 0,
+    background: "rgba(0,0,0,0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
   },
 };
 
@@ -208,6 +242,102 @@ const profileStyles = {
       saveFavorites(next);
       return next;
     });
+  };
+
+  const handleBookmarkClick = (recipe: any) => {
+    if (!user) return;
+    
+    const recipeId = String(recipe.id);
+    const isInCollections = recipesInCollections.has(recipeId);
+    
+    if (isInCollections) {
+      // Show remove confirmation
+      setRecipeToRemove(recipe);
+      const recipeCollections = recipeCollectionMap.get(recipeId) || [];
+      setCollectionsToRemoveFrom(recipeCollections);
+      setShowRemoveDialog(true);
+    } else {
+      // Show add to collection dialog
+      setSelectedRecipe(recipe);
+      const recipeInCollections = Object.keys(collections).filter((cid) =>
+        collections[cid].recipes?.some((r: any) => r.id === recipe.id)
+      );
+      setSelectedCollections(recipeInCollections);
+      setShowAddToCollectionDialog(true);
+    }
+  };
+
+  const toggleCollectionSelection = (collectionId: string) => {
+    setSelectedCollections((prev) =>
+      prev.includes(collectionId)
+        ? prev.filter((id) => id !== collectionId)
+        : [...prev, collectionId]
+    );
+  };
+
+  const handleConfirmAddToCollection = async () => {
+    if (!selectedRecipe || !user?.id) return;
+    if (selectedCollections.length === 0) return;
+    
+    try {
+      // Add recipe to each selected collection in Supabase
+      for (const collectionId of selectedCollections) {
+        await addRecipeToCollection(collectionId, {
+          id: selectedRecipe.id,
+          title: selectedRecipe.title,
+          image: selectedRecipe.image || "/food.png",
+        });
+      }
+      
+      // Reload collections to reflect changes
+      const collectionsData = await getUserCollections(user.id);
+      
+      const collectionsMap: any = {};
+      const allRecipeIds = new Set<string>();
+      const recipeToCollections = new Map<string, string[]>();
+      
+      for (const col of collectionsData) {
+        const recipes = await getCollectionRecipes(col.id);
+        recipes.forEach((recipe: any) => {
+          const rId = String(recipe.id);
+          allRecipeIds.add(rId);
+          if (!recipeToCollections.has(rId)) {
+            recipeToCollections.set(rId, []);
+          }
+          recipeToCollections.get(rId)!.push(col.id);
+        });
+        
+        collectionsMap[col.id] = {
+          id: col.id,
+          title: col.title,
+          name: col.title,
+          description: col.description || "",
+          cover_image_url: col.cover_image_url || "",
+          coverImage: col.cover_image_url || "",
+          recipes: recipes.map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            image: r.image_url,
+            image_url: r.image_url,
+          })),
+          createdAt: new Date(col.created_at).getTime(),
+          created_at: col.created_at,
+        };
+      }
+      
+      setCollections(collectionsMap);
+      setRecipesInCollections(allRecipeIds);
+      setRecipeCollectionMap(recipeToCollections);
+      
+      console.log("✅ Successfully added recipe to collections");
+    } catch (e) {
+      console.error("❌ Failed to add recipe to collections:", e);
+      alert("Failed to add recipe to collections. Please try again.");
+    } finally {
+      setShowAddToCollectionDialog(false);
+      setSelectedRecipe(null);
+      setSelectedCollections([]);
+    }
   };
 
   const sortedList = (() => {
@@ -304,14 +434,48 @@ const profileStyles = {
           ) : (
             <div style={{ ...profileStyles.recipeGrid, marginTop: 20 }}>
               {sortedList.map((r: any) => (
-                <div key={r.id} style={profileStyles.card}>
+                <div 
+                  key={r.id} 
+                  style={profileStyles.card}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.05)";
+                    e.currentTarget.style.transition = "transform 0.3s ease";
+                  }}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                >
                   <div style={profileStyles.cardHeader}>
                     <h3 style={profileStyles.titleClamp}>{r.title}</h3>
-                    <button onClick={() => handleUnfavorite(r.id)} style={profileStyles.heartButton} aria-label="unfavorite">❤</button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleBookmarkClick(r)}
+                        style={profileStyles.heartButton}
+                        aria-label={recipesInCollections.has(String(r.id)) ? "Remove from collection" : "Add to collection"}
+                      >
+                        {recipesInCollections.has(String(r.id)) ? (
+                          <FaBookmark size={16} color="#FFD700" />
+                        ) : (
+                          <FaRegBookmark size={16} />
+                        )}
+                      </button>
+                      <button 
+                        onClick={() => handleUnfavorite(r.id)} 
+                        style={profileStyles.heartButton} 
+                        aria-label="unfavorite"
+                      >
+                        <FaHeart color="red" size={18} />
+                      </button>
+                    </div>
                   </div>
-                  <img src={r.image || "/food.png"} alt={r.title} style={profileStyles.cardImg} />
+                  <img src={r.image || "/food.png"} alt={r.title} style={profileStyles.cardImg} loading="lazy" />
                   <div style={profileStyles.tags}>{(r.tags || []).map((t: string, i: number) => <span key={i} style={profileStyles.tag}>{t}</span>)}</div>
-                  <button style={profileStyles.seeRecipe} onClick={() => router.push(`/recipe/${r.id}`)}>See Recipe ➝</button>
+                  <button 
+                    style={profileStyles.seeRecipe} 
+                    onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#FF9E00"; (e.target as HTMLButtonElement).style.color = "#000"; }}
+                    onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#000"; (e.target as HTMLButtonElement).style.color = "#fff"; }}
+                    onClick={() => router.push(`/recipe/${r.id}`)}
+                  >
+                    See Recipe ➝
+                  </button>
                 </div>
               ))}
             </div>
@@ -786,6 +950,336 @@ const profileStyles = {
               }}
               onCancel={() => setShowCreateDialog(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Add to Collection Dialog */}
+      {showAddToCollectionDialog && selectedRecipe && (
+        <div
+          style={profileStyles.modalOverlay}
+          onClick={() => {
+            setShowAddToCollectionDialog(false);
+            setSelectedRecipe(null);
+            setSelectedCollections([]);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 0,
+              maxWidth: 720,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+              display: "flex",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Left side - Recipe preview */}
+            <div style={{ flex: "0 0 320px", background: "#f9f9f9", padding: 24 }}>
+              <img
+                src={selectedRecipe.image || "/food.png"}
+                alt={selectedRecipe.title}
+                style={{
+                  width: "100%",
+                  height: 240,
+                  borderRadius: 12,
+                  objectFit: "cover",
+                  marginBottom: 16,
+                }}
+              />
+              <h3 style={{ margin: "0 0 8px 0", fontSize: 18 }}>
+                {selectedRecipe.title}
+              </h3>
+            </div>
+
+            {/* Right side - Collections list */}
+            <div style={{ flex: 1, padding: 32, display: "flex", flexDirection: "column" }}>
+              <h3 style={{ margin: "0 0 20px 0", fontSize: 20 }}>Add to collections</h3>
+
+              {Object.keys(collections).length === 0 ? (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <p style={{ color: "#666", textAlign: "center" }}>
+                    No collections yet. Create one below!
+                  </p>
+                </div>
+              ) : (
+                <div style={{ flex: 1, overflowY: "auto", marginBottom: 20 }}>
+                  {Object.values(collections).map((col: any) => (
+                    <label
+                      key={col.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "12px 16px",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        transition: "background 0.2s",
+                        marginBottom: 8,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCollections.includes(col.id)}
+                        onChange={() => toggleCollectionSelection(col.id)}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          cursor: "pointer",
+                        }}
+                      />
+                      <span style={{ fontSize: 15, fontWeight: 500 }}>{col.name || col.title}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowAddToCollectionDialog(false);
+                  setSelectedRecipe(null);
+                  setSelectedCollections([]);
+                  setShowCreateDialog(true);
+                }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 25,
+                  border: "1px solid #FF9E00",
+                  background: "#fff",
+                  color: "#FF9E00",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  marginBottom: 12,
+                }}
+              >
+                New Collection +
+              </button>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={() => {
+                    setShowAddToCollectionDialog(false);
+                    setSelectedRecipe(null);
+                    setSelectedCollections([]);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "12px 24px",
+                    borderRadius: 12,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: 15,
+                    fontWeight: 500,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAddToCollection}
+                  disabled={selectedCollections.length === 0}
+                  style={{
+                    flex: 1,
+                    padding: "12px 24px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: selectedCollections.length > 0 ? "#FF9E00" : "#ccc",
+                    color: "#fff",
+                    cursor: selectedCollections.length > 0 ? "pointer" : "not-allowed",
+                    fontSize: 15,
+                    fontWeight: 500,
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove from Collection Confirmation Dialog */}
+      {showRemoveDialog && recipeToRemove && (
+        <div
+          style={profileStyles.modalOverlay}
+          onClick={() => {
+            setShowRemoveDialog(false);
+            setRecipeToRemove(null);
+            setCollectionsToRemoveFrom([]);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Recipe</h3>
+            <p style={{ color: "#666", marginBottom: 16 }}>
+              Are you sure you want to remove &quot;{recipeToRemove.title}&quot; from:
+            </p>
+            
+            <div style={{ marginBottom: 24, maxHeight: 200, overflowY: "auto" }}>
+              {recipeCollectionMap.get(String(recipeToRemove.id))?.map(collectionId => (
+                <label
+                  key={collectionId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
+                    cursor: "pointer",
+                    borderRadius: 8,
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <input
+                    type="checkbox"
+                    checked={collectionsToRemoveFrom.includes(collectionId)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setCollectionsToRemoveFrom(prev => [...prev, collectionId]);
+                      } else {
+                        setCollectionsToRemoveFrom(prev => prev.filter(id => id !== collectionId));
+                      }
+                    }}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: "pointer",
+                    }}
+                  />
+                  <span style={{ fontSize: 15 }}>{collections[collectionId]?.name || collections[collectionId]?.title}</span>
+                </label>
+              ))}
+            </div>
+            
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => {
+                  setShowRemoveDialog(false);
+                  setRecipeToRemove(null);
+                  setCollectionsToRemoveFrom([]);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={collectionsToRemoveFrom.length === 0}
+                onClick={async () => {
+                  if (!user?.id || !recipeToRemove || collectionsToRemoveFrom.length === 0) return;
+                  
+                  try {
+                    const recipeId = String(recipeToRemove.id);
+                    
+                    // Remove recipe from selected collections only
+                    for (const collectionId of collectionsToRemoveFrom) {
+                      await removeRecipeFromCollection(collectionId, recipeId);
+                    }
+                    
+                    // Reload collections to reflect changes
+                    const collectionsData = await getUserCollections(user.id);
+                    
+                    const collectionsMap: any = {};
+                    const allRecipeIds = new Set<string>();
+                    const recipeToCollections = new Map<string, string[]>();
+                    
+                    for (const col of collectionsData) {
+                      const recipes = await getCollectionRecipes(col.id);
+                      recipes.forEach((recipe: any) => {
+                        const rId = String(recipe.id);
+                        allRecipeIds.add(rId);
+                        if (!recipeToCollections.has(rId)) {
+                          recipeToCollections.set(rId, []);
+                        }
+                        recipeToCollections.get(rId)!.push(col.id);
+                      });
+                      
+                      collectionsMap[col.id] = {
+                        id: col.id,
+                        title: col.title,
+                        name: col.title,
+                        description: col.description || "",
+                        cover_image_url: col.cover_image_url || "",
+                        coverImage: col.cover_image_url || "",
+                        recipes: recipes.map((r: any) => ({
+                          id: r.id,
+                          title: r.title,
+                          image: r.image_url,
+                          image_url: r.image_url,
+                        })),
+                        createdAt: new Date(col.created_at).getTime(),
+                        created_at: col.created_at,
+                      };
+                    }
+                    
+                    setCollections(collectionsMap);
+                    setRecipesInCollections(allRecipeIds);
+                    setRecipeCollectionMap(recipeToCollections);
+                    
+                    console.log("✅ Successfully removed recipe from collections");
+                  } catch (e) {
+                    console.error("❌ Failed to remove recipe from collections:", e);
+                    alert("Failed to remove recipe from collections. Please try again.");
+                  } finally {
+                    setShowRemoveDialog(false);
+                    setRecipeToRemove(null);
+                    setCollectionsToRemoveFrom([]);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: collectionsToRemoveFrom.length > 0 ? "#FF9E00" : "#ccc",
+                  color: "#fff",
+                  cursor: collectionsToRemoveFrom.length > 0 ? "pointer" : "not-allowed",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (collectionsToRemoveFrom.length > 0) {
+                    e.currentTarget.style.background = "#FF8C00";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (collectionsToRemoveFrom.length > 0) {
+                    e.currentTarget.style.background = "#FF9E00";
+                  }
+                }}
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </div>
       )}

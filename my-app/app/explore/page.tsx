@@ -28,6 +28,7 @@ export default function Explore() {
   const [recipeCollectionMap, setRecipeCollectionMap] = useState<Map<string, string[]>>(new Map());
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
+  const [collectionsToRemoveFrom, setCollectionsToRemoveFrom] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -268,6 +269,8 @@ export default function Explore() {
     if (isInCollections) {
       // Show remove confirmation
       setRecipeToRemove(recipe);
+      const recipeCollections = recipeCollectionMap.get(String(recipe.id)) || [];
+      setCollectionsToRemoveFrom(recipeCollections);
       setShowRemoveDialog(true);
     } else {
       // Show add to collection dialog
@@ -699,6 +702,7 @@ export default function Explore() {
             onClick={() => {
               setShowRemoveDialog(false);
               setRecipeToRemove(null);
+              setCollectionsToRemoveFrom([]);
             }}
           >
             <div
@@ -712,15 +716,54 @@ export default function Explore() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Recipe from Collection</h3>
-              <p style={{ color: "#666", marginBottom: 24 }}>
-                Are you sure you want to remove this recipe from the selected collection? This action cannot be undone. Do you wish to proceed?
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Recipe</h3>
+              <p style={{ color: "#666", marginBottom: 16 }}>
+                Are you sure you want to remove &quot;{recipeToRemove.title}&quot; from:
               </p>
+              
+              <div style={{ marginBottom: 24, maxHeight: 200, overflowY: "auto" }}>
+                {recipeCollectionMap.get(String(recipeToRemove.id))?.map(collectionId => (
+                  <label
+                    key={collectionId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      borderRadius: 8,
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={collectionsToRemoveFrom.includes(collectionId)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCollectionsToRemoveFrom(prev => [...prev, collectionId]);
+                        } else {
+                          setCollectionsToRemoveFrom(prev => prev.filter(id => id !== collectionId));
+                        }
+                      }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        cursor: "pointer",
+                      }}
+                    />
+                    <span style={{ fontSize: 15 }}>{collections[collectionId]?.name}</span>
+                  </label>
+                ))}
+              </div>
+              
               <div style={{ display: "flex", gap: 12 }}>
                 <button
                   onClick={() => {
                     setShowRemoveDialog(false);
                     setRecipeToRemove(null);
+                    setCollectionsToRemoveFrom([]);
                   }}
                   style={{
                     flex: 1,
@@ -740,17 +783,17 @@ export default function Explore() {
                   Cancel
                 </button>
                 <button
+                  disabled={collectionsToRemoveFrom.length === 0}
                   onClick={async () => {
-                    if (!user?.id || !recipeToRemove) return;
+                    if (!user?.id || !recipeToRemove || collectionsToRemoveFrom.length === 0) return;
                     
                     try {
                       const { removeRecipeFromCollection, getUserCollections, getCollectionRecipes } = await import('../../lib/database');
                       
                       const recipeId = String(recipeToRemove.id);
-                      const collectionIds = recipeCollectionMap.get(recipeId) || [];
                       
-                      // Remove recipe from all collections it belongs to
-                      for (const collectionId of collectionIds) {
+                      // Remove recipe from selected collections only
+                      for (const collectionId of collectionsToRemoveFrom) {
                         await removeRecipeFromCollection(collectionId, recipeId);
                       }
                       
@@ -793,6 +836,7 @@ export default function Explore() {
                     } finally {
                       setShowRemoveDialog(false);
                       setRecipeToRemove(null);
+                      setCollectionsToRemoveFrom([]);
                     }
                   }}
                   style={{
@@ -800,15 +844,23 @@ export default function Explore() {
                     padding: "10px 20px",
                     borderRadius: 12,
                     border: "none",
-                    background: "#FF9E00",
+                    background: collectionsToRemoveFrom.length > 0 ? "#FF9E00" : "#ccc",
                     color: "#fff",
-                    cursor: "pointer",
+                    cursor: collectionsToRemoveFrom.length > 0 ? "pointer" : "not-allowed",
                     fontSize: 14,
                     fontWeight: 600,
                     transition: "all 0.2s",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+                  onMouseEnter={(e) => {
+                    if (collectionsToRemoveFrom.length > 0) {
+                      e.currentTarget.style.background = "#FF8C00";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (collectionsToRemoveFrom.length > 0) {
+                      e.currentTarget.style.background = "#FF9E00";
+                    }
+                  }}
                 >
                   Remove
                 </button>

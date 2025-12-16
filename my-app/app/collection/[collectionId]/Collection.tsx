@@ -12,6 +12,7 @@ import {
   deleteCollection, 
   removeRecipeFromCollection 
 } from "../../../lib/database";
+import { FaHeart, FaRegHeart, FaBookmark, FaRegBookmark } from "react-icons/fa";
 
 export default function CollectionView() {
   const params = useParams();
@@ -24,13 +25,29 @@ export default function CollectionView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showRemoveRecipeDialog, setShowRemoveRecipeDialog] = useState(false);
+  const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<any>({});
   const router = useRouter();
 
   useEffect(() => {
     const subscription = onAuthStateChange((u) => setUser(u));
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    if (!user?.id) return;
+    const storageKey = `dishcovery_favorites_${user.id}`;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      setFavorites(parsed || {});
+    } catch (e) {
+      console.error("Failed to load favorites", e);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -93,13 +110,22 @@ export default function CollectionView() {
     }
   };
 
-  const handleRemoveFromCollection = async (recipeId: string) => {
+  const handleRemoveRecipeClick = (recipe: any) => {
+    setRecipeToRemove(recipe);
+    setShowRemoveRecipeDialog(true);
+  };
+
+  const handleConfirmRemoveFromCollection = async () => {
+    if (!recipeToRemove) return;
+    
     try {
-      const success = await removeRecipeFromCollection(collectionId, recipeId);
+      const success = await removeRecipeFromCollection(collectionId, recipeToRemove.id);
       if (success) {
         // Refresh recipes list
         const updatedRecipes = await getCollectionRecipes(collectionId);
         setRecipes(updatedRecipes);
+        setShowRemoveRecipeDialog(false);
+        setRecipeToRemove(null);
       } else {
         console.error("Failed to remove recipe");
         alert("Failed to remove recipe. Please try again.");
@@ -108,6 +134,32 @@ export default function CollectionView() {
       console.error("Failed to remove recipe from collection", e);
       alert("Failed to remove recipe. Please try again.");
     }
+  };
+
+  const handleToggleFavorite = (recipe: any) => {
+    if (!user?.id) return;
+    const id = String(recipe.id);
+    const storageKey = `dishcovery_favorites_${user.id}`;
+    setFavorites((prev: any) => {
+      const next = { ...(prev || {}) };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = {
+          id: recipe.id,
+          title: recipe.title,
+          image: recipe.image_url || "/food.png",
+          tags: [],
+          addedAt: Date.now(),
+        };
+      }
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save favorites", e);
+      }
+      return next;
+    });
   };
 
   const sortedList = (() => {
@@ -136,12 +188,12 @@ export default function CollectionView() {
     card: {
       background: "#fff",
       borderRadius: 16,
-      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
       padding: 15,
       display: "flex",
       flexDirection: "column" as const,
       gap: 10,
-      transition: "transform 0.2s ease",
+      transition: "transform 0.3s ease",
     },
     cardHeader: {
       display: "flex",
@@ -154,8 +206,6 @@ export default function CollectionView() {
       background: "none",
       border: "none",
       cursor: "pointer",
-      fontSize: 18,
-      color: "#FF4D6D",
       flexShrink: 0,
     },
     titleClamp: {
@@ -175,9 +225,10 @@ export default function CollectionView() {
       flexShrink: 0,
       borderRadius: 12,
       objectFit: "cover" as const,
+      objectPosition: "center",
       display: "block",
     },
-    tags: { display: "flex", gap: 8, flexWrap: "wrap", minHeight: 28, marginTop: 6 },
+    tags: { display: "flex", gap: 8, flexWrap: "wrap" as const, minHeight: 28 },
     tag: { background: "#f5f5f5", padding: "4px 10px", borderRadius: 12, fontSize: 12 },
     seeRecipe: {
       marginTop: "auto",
@@ -189,7 +240,7 @@ export default function CollectionView() {
       cursor: "pointer",
       fontSize: 14,
       fontWeight: 500,
-      transition: "all 0.2s ease",
+      transition: "all 0.3s ease",
     },
   };
 
@@ -497,27 +548,49 @@ export default function CollectionView() {
         ) : (
           <div style={collectionStyles.recipeGrid}>
             {sortedList.map((r) => (
-              <div key={r.id} style={collectionStyles.card}>
+              <div 
+                key={r.id} 
+                style={collectionStyles.card}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.transition = "transform 0.3s ease";
+                }}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              >
                 <div style={collectionStyles.cardHeader}>
                   <h3 style={collectionStyles.titleClamp}>{r.title}</h3>
-                  <button
-                    onClick={() => handleRemoveFromCollection(r.id)}
-                    style={collectionStyles.heartButton}
-                    aria-label="Remove from collection"
-                  >
-                    ❤
-                  </button>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>                    
+                    <button
+                      onClick={() => handleRemoveRecipeClick(r)}
+                      style={collectionStyles.heartButton}
+                      aria-label="Remove from collection"
+                    >
+                      <FaBookmark size={16} color="#FFD700" />
+                    </button>
+                    <button
+                      onClick={() => handleToggleFavorite(r)}
+                      style={collectionStyles.heartButton}
+                      aria-label={favorites[String(r.id)] ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      {favorites[String(r.id)] ? (
+                        <FaHeart color="red" size={18} />
+                      ) : (
+                        <FaRegHeart size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <img
                   src={r.image_url || "/food.png"}
                   alt={r.title}
                   style={collectionStyles.cardImg}
+                  loading="lazy"
                 />
                 <button
                   style={collectionStyles.seeRecipe}
                   onClick={() => router.push(`/recipe/${r.id}`)}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "#333"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "#000"}
+                  onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#FF9E00"; (e.target as HTMLButtonElement).style.color = "#000"; }}
+                  onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#000"; (e.target as HTMLButtonElement).style.color = "#fff"; }}
                 >
                   See Recipe ➝
                 </button>
@@ -573,6 +646,85 @@ export default function CollectionView() {
               }}
               onCancel={() => setShowEditDialog(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Remove Recipe Dialog */}
+      {showRemoveRecipeDialog && recipeToRemove && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+          onClick={() => {
+            setShowRemoveRecipeDialog(false);
+            setRecipeToRemove(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove Recipe</h3>
+            <p style={{ color: "#666", marginBottom: 24 }}>
+              Are you sure you want to remove &quot;{recipeToRemove.title}&quot; from this collection?
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => {
+                  setShowRemoveRecipeDialog(false);
+                  setRecipeToRemove(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRemoveFromCollection}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#FF9E00",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </div>
       )}
