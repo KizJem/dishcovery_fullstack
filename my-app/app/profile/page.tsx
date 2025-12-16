@@ -25,6 +25,8 @@ export default function Profile() {
   const [showRemoveDialog, setShowRemoveDialog] = useState<boolean>(false);
   const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
   const [collectionsToRemoveFrom, setCollectionsToRemoveFrom] = useState<string[]>([]);
+  const [showRemoveFavoriteDialog, setShowRemoveFavoriteDialog] = useState<boolean>(false);
+  const [favoriteToRemove, setFavoriteToRemove] = useState<any>(null);
   const [showCreateDialog, setShowCreateDialog] = useState<boolean>(false);
   const [showEditDialog, setShowEditDialog] = useState<boolean>(false);
   const [editUsername, setEditUsername] = useState<string>("");
@@ -234,14 +236,22 @@ const profileStyles = {
   },
 };
 
-  const handleUnfavorite = (id: string | number) => {
-    const sid = String(id);
+  const handleUnfavorite = (recipe: any) => {
+    setFavoriteToRemove(recipe);
+    setShowRemoveFavoriteDialog(true);
+  };
+
+  const handleConfirmRemoveFavorite = () => {
+    if (!favoriteToRemove) return;
+    const sid = String(favoriteToRemove.id);
     setFavorites((prev: any) => {
       const next = { ...(prev || {}) };
       delete next[sid];
       saveFavorites(next);
       return next;
     });
+    setShowRemoveFavoriteDialog(false);
+    setFavoriteToRemove(null);
   };
 
   const handleBookmarkClick = (recipe: any) => {
@@ -458,7 +468,7 @@ const profileStyles = {
                         )}
                       </button>
                       <button 
-                        onClick={() => handleUnfavorite(r.id)} 
+                        onClick={() => handleUnfavorite(r)} 
                         style={profileStyles.heartButton} 
                         aria-label="unfavorite"
                       >
@@ -1276,6 +1286,77 @@ const profileStyles = {
                     e.currentTarget.style.background = "#FF9E00";
                   }
                 }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Favorite Confirmation Dialog */}
+      {showRemoveFavoriteDialog && favoriteToRemove && (
+        <div
+          style={profileStyles.modalOverlay}
+          onClick={() => {
+            setShowRemoveFavoriteDialog(false);
+            setFavoriteToRemove(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "90%",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove from Favorites</h3>
+            <p style={{ color: "#666", marginBottom: 24 }}>
+              Are you sure you want to remove &quot;{favoriteToRemove.title}&quot; from your favorites?
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => {
+                  setShowRemoveFavoriteDialog(false);
+                  setFavoriteToRemove(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#222",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRemoveFavorite}
+                style={{
+                  flex: 1,
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#FF9E00",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
               >
                 Remove
               </button>

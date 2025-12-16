@@ -29,6 +29,8 @@ export default function Explore() {
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [recipeToRemove, setRecipeToRemove] = useState<any>(null);
   const [collectionsToRemoveFrom, setCollectionsToRemoveFrom] = useState<string[]>([]);
+  const [showRemoveFavoriteDialog, setShowRemoveFavoriteDialog] = useState(false);
+  const [favoriteToRemove, setFavoriteToRemove] = useState<any>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -144,20 +146,25 @@ export default function Explore() {
     }
     const id = String(recipe.id);
     const key = storageKey(user?.id);
+    
+    // If removing from favorites, show confirmation
+    if (favorites[id]) {
+      setFavoriteToRemove(recipe);
+      setShowRemoveFavoriteDialog(true);
+      return;
+    }
+    
+    // Add to favorites
     setFavorites((prev: any) => {
       const next = { ...(prev || {}) };
-      if (next[id]) {
-        delete next[id];
-      } else {
-        // store minimal data needed for profile view
-        next[id] = {
-          id: recipe.id,
-          title: recipe.title,
-          image: recipe.image || "/food.png",
-          tags: buildTags(recipe),
-          addedAt: Date.now(),
-        };
-      }
+      // store minimal data needed for profile view
+      next[id] = {
+        id: recipe.id,
+        title: recipe.title,
+        image: recipe.image || "/food.png",
+        tags: buildTags(recipe),
+        addedAt: Date.now(),
+      };
       try {
         localStorage.setItem(key, JSON.stringify(next));
       } catch (e) {
@@ -167,6 +174,26 @@ export default function Explore() {
       setLiked((p: any) => ({ ...p, [id]: !!next[id] }));
       return next;
     });
+  };
+
+  const handleConfirmRemoveFavorite = () => {
+    if (!favoriteToRemove || !user) return;
+    const id = String(favoriteToRemove.id);
+    const key = storageKey(user?.id);
+    setFavorites((prev: any) => {
+      const next = { ...(prev || {}) };
+      delete next[id];
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save favorites", e);
+      }
+      // keep liked state in sync
+      setLiked((p: any) => ({ ...p, [id]: false }));
+      return next;
+    });
+    setShowRemoveFavoriteDialog(false);
+    setFavoriteToRemove(null);
   };
 
   const apiParams = useMemo(() => {
@@ -861,6 +888,77 @@ export default function Explore() {
                       e.currentTarget.style.background = "#FF9E00";
                     }
                   }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove Favorite Confirmation Dialog */}
+        {showRemoveFavoriteDialog && favoriteToRemove && (
+          <div
+            style={styles.modalOverlay}
+            onClick={() => {
+              setShowRemoveFavoriteDialog(false);
+              setFavoriteToRemove(null);
+            }}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: 32,
+                maxWidth: 440,
+                width: "90%",
+                boxShadow: "0 12px 48px rgba(0,0,0,0.2)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 20, textAlign: "center", fontWeight: 500 }}>Remove from Favorites</h3>
+              <p style={{ color: "#666", marginBottom: 24 }}>
+                Are you sure you want to remove &quot;{favoriteToRemove.title}&quot; from your favorites?
+              </p>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={() => {
+                    setShowRemoveFavoriteDialog(false);
+                    setFavoriteToRemove(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    borderRadius: 12,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#222",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9f9f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRemoveFavorite}
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "#FF9E00",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FF8C00")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#FF9E00")}
                 >
                   Remove
                 </button>
